@@ -1,0 +1,28 @@
+# Ignore build paths
+bin/
+lib/
+third_party/
+
+# Default ignore files for C++ project. See
+# https://github.com/github/gitignore/blob/master/C%2B%2B.gitignore
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# vi
+tags
+*.swp
+
+# osx
+.DS_Store
