@@ -59,8 +59,8 @@ Moving on,
 # Under project root directory 'petuum'
 make helloworld
 
-# Start the server
-sh scripts/run_int_servers.sh machinefiles/localserver
+# Start the server. Helloworld uses float tables and thus float servers.
+sh scripts/run_float_servers.sh machinefiles/localserver
 
 # Wait till seeting 'Servers are ready to accept clients!'
 
