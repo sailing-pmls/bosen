@@ -2,7 +2,7 @@
 PS_DIR = $(SRC)/petuum_ps
 
 ps_all: ps_client \
-        ps_server_int	\
+        ps_server_int \
         ps_server_float
 
 .PHONY: ps_all

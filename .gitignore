@@ -3,6 +3,12 @@ bin/
 lib/
 third_party/
 
+# Do not track the followings in release
+tests/
+sync.sh
+src/petuum_ps/server/server_mt.hpp
+src/petuum_ps/proxy/server_proxy_mt.hpp
+
 # Default ignore files for C++ project. See
 # https://github.com/github/gitignore/blob/master/C%2B%2B.gitignore
 
