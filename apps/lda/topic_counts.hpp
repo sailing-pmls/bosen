@@ -69,7 +69,8 @@ struct TopicCounts {
     void upd_count(topic_t old_topic, topic_t new_topic);
     /***** Setters *****/
 
-    //Test & Debug
+    // WARNING! this will sort the topics in ascending order. Only use it after
+    // the main algorithm finished.
     std::string print();
 };
 

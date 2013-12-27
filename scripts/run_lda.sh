@@ -23,6 +23,7 @@ project_root=`dirname $script_dir`
 third_party_lib=$project_root/third_party/lib
 lda_path=$project_root/bin/$app_prog
 config_file=$project_root/apps/lda/lda_tables.cfg
+output_prefix=$project_root/dump
 
 data_file=$data_set_path
 vocab_file=$data_file.map
@@ -56,6 +57,7 @@ for ip in $host_list; do
     --compute_ll_interval=$compute_ll_interval \
     --head_client=$head_client \
     --num_topics=$num_topics \
+    --output_prefix=$output_prefix \
     --num_iterations=$num_iterations &
   
   client_rank=$(( client_rank+1 ))

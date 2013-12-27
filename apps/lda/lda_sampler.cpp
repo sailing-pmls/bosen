@@ -114,7 +114,7 @@ void LDASampler::ReadData(bool zero_indexed) {
   }
   CHECK_EQ(num_global_words, dict_.size());
   context.set("num_global_words", num_global_words);
-  CHECK_EQ(fclose(vocab_stream), 0) << "Failed to close file" << vocab_file;
+  CHECK_EQ(fclose(vocab_stream), 0) << "Failed to close file " << vocab_file;
   LOG(INFO) << "Num of Global Words: " << num_global_words;
 
   // Read word stat file
@@ -148,7 +148,7 @@ void LDASampler::ReadData(bool zero_indexed) {
   }
   free(line);
   context.set("num_local_words", num_local_words);
-  CHECK_EQ(fclose(data_stream), 0) << "Failed to close file" << data_file;
+  CHECK_EQ(fclose(data_stream), 0) << "Failed to close file " << data_file;
   LOG(INFO) << "Num of Local Words: " << num_local_words;
 
   // Assuming symmetric Dirichlet prior
@@ -239,6 +239,15 @@ void LDASampler::RunSampler() {
       PrintTopWords();
     }
     */
+  }
+
+  // Flush the oplog and invalidate all caches.
+  table_group_->GlobalBarrier();
+
+  // dump result
+  if (context.get_string("output_prefix") != "" &&
+      sampler_thread_data_->thread_id == 0) {
+    Dump();
   }
 
   table_group_->DeregisterThread();
@@ -403,6 +412,49 @@ void LDASampler::ComputeDocLikelihood() {
   {
     boost::lock_guard<boost::mutex> guard(doc_likelihood_lock_);
     doc_likelihood_ += this_thread;
+  }
+}
+
+void LDASampler::Dump() {
+  Context& context = Context::get_instance();
+  int num_topics = context.get_int32("num_topics");
+  std::string output_prefix = context.get_string("output_prefix");
+  int32_t client_id = context.get_int32("client_id");
+  bool head_client = context.get_bool("head_client");
+  int32_t num_docs = context.get_int32("num_docs");
+  int32_t num_global_words = context.get_int32("num_global_words");
+  
+  // dump word-topic counts
+  std::string word_topic_dump = output_prefix +
+                                ".word_topic." +
+                                std::to_string(client_id);
+  FILE *wt_stream = fopen(word_topic_dump.c_str(), "w");
+  CHECK_NOTNULL(wt_stream);
+  LOG_WHO << "Writing output to " << word_topic_dump << " ...";
+  for (int word_id = 0; word_id < num_global_words; ++word_id) {
+    auto it = word_samplers_.find(word_id);
+    if (it != word_samplers_.end())
+      fprintf(wt_stream, (it->second).Print().c_str());
+  }
+  CHECK_EQ(fclose(wt_stream), 0) << "Failed to close file " << word_topic_dump;
+
+  // dump doc-topic counts
+  if (head_client) {
+    std::string doc_topic_dump = output_prefix + ".doc_topic";
+    FILE *dt_stream = fopen(doc_topic_dump.c_str(), "w");
+    CHECK_NOTNULL(dt_stream);
+    LOG_WHO << "Writing output to " << doc_topic_dump << " ...";
+    for (int doc_id = 0; doc_id < num_docs; ++doc_id) {
+      fprintf(dt_stream, "%d", doc_id);
+      int dtc;
+      for (int k = 0; k < num_topics; ++k) {
+        dtc = doc_topic_table_->Get(doc_id, k);
+        if (dtc > 0)
+          fprintf(dt_stream, " %d:%d", k, dtc);
+      }
+      fprintf(dt_stream, "\n");
+    }
+    CHECK_EQ(fclose(dt_stream), 0) << "Failed to close file " << doc_topic_dump;
   }
 }
 

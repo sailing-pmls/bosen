@@ -18,7 +18,7 @@ PS_SRC = $(filter-out $(PS_SERVER_INT_SRC) \
                       $(shell find $(PS_DIR) -type f -name *.cpp))
 PS_OBJ = $(PS_SRC:.cpp=.o)
 
-ps_client: $(NEED_MKDIR) $(PS_CLIENT)
+ps_client: path $(PS_CLIENT)
 
 $(PS_CLIENT): $(PS_OBJ)
 	ar csrv $@ $^
@@ -34,8 +34,8 @@ PS_SERVER_FLOAT = $(BIN)/ps_server_float
 
 PS_SRC_ALL = $(wildcard $(PS_DIR)/*/*)
 
-ps_server_int: $(NEED_MKDIR) $(PS_SERVER_INT)
-ps_server_float: $(NEED_MKDIR) $(PS_SERVER_FLOAT)
+ps_server_int: path $(PS_SERVER_INT)
+ps_server_float: path $(PS_SERVER_FLOAT)
 
 $(PS_SERVER_INT): $(PS_SERVER_INT_SRC) $(PS_OBJ) $(PS_SRC_ALL)
 	$(CXX) $(CXXFLAGS) $(INCFLAGS) $< $(PS_OBJ) $(LDFLAGS) -o $@

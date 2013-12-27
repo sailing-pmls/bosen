@@ -66,6 +66,9 @@ class WordSampler {
     // Return a pair of word and count
     wcmap_t GetWordCountMap(int topic);
 
+    // word topic:count topic:count ...
+    std::string Print();
+
   private:
     void FastGibbsSampling(int32_t doc_id,
         std::vector<int32_t> &topic_assignments,
@@ -98,8 +101,6 @@ class WordSampler {
 
     // Number of tokens which are word_.
     int32_t num_tokens_;
-
-    static double average_delta_;
 
     int32_t *sum_row_cache_;
     int32_t *doc_topic_cache_;

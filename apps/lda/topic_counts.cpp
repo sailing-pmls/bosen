@@ -398,16 +398,18 @@ void TopicCounts::upd_count(topic_t old_topic, topic_t new_topic) {
 
 /********************************* Setters *****************************************/
 
-/*************************** Test & Debug *********************************/
+// temp function used below
+bool ordered_topics(const cnt_topic_t& lhs, const cnt_topic_t& rhs) {
+  return (lhs.choose.top < rhs.choose.top);
+}
+
 std::string TopicCounts::print() {
-    std::stringstream ss;
-    int sum = 0;
-    for (int i = 0; i < length; i++) {
-        ss << items[i].choose.top << "," << items[i].choose.cnt << " ";
-        sum += items[i].choose.cnt;
-    }
-    ss << "Frequency," << sum;
-    return ss.str();
+  std::sort(items, items + length, ordered_topics);
+  std::stringstream ss;
+  for (int i = 0; i < length; i++) {
+    ss << " " << items[i].choose.top << ":" << items[i].choose.cnt;
+  }
+  return ss.str();
 }
 
 }

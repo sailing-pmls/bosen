@@ -40,10 +40,12 @@ LDFLAGS = -L$(THIRD_PARTY_LIB) \
           -ltcmalloc \
           -lconfig++
 
-all: $(NEED_MKDIR) \
+all: path \
      third_party \
      ps_all
 #     apps_all
+
+path: $(NEED_MKDIR)
 
 $(NEED_MKDIR):
 	mkdir -p $@
@@ -53,9 +55,9 @@ clean:
 
 distclean: clean
 	rm -rf $(filter-out $(THIRD_PARTY)/third_party.mk, \
-		$(wildcard $(THIRD_PARTY)/*))
+		            $(wildcard $(THIRD_PARTY)/*))
 
-.PHONY: all clean distclean
+.PHONY: all path clean distclean
 
 
 include $(SRC)/petuum.mk

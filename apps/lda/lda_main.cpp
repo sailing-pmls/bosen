@@ -58,11 +58,10 @@ DEFINE_double(alpha, 1, "Dirichlet prior on document-topic vectors.");
 DEFINE_double(beta, 0.01, "Dirichlet prior on vocab-topic vectors.");
 DEFINE_int32(num_topics, 100, "Number of topics.");
 DEFINE_int32(num_iterations, 100, "Number of iterations");
-DEFINE_int32(num_words_per_thread_per_iteration, 1000,
-    "Number of words (vocabs) to sample per thread per iteration.");
 DEFINE_int32(compute_ll_interval, 10,
     "Copmute log likelihood over local dataset on every N iterations");
 DEFINE_bool(head_client, false, "If it is the contributor of doc likelihood");
+DEFINE_string(output_prefix, "", "Prefix for output files. Use abs path.");
 
 // Misc
 DEFINE_int32(num_top_words, 10, "Num of top words to display");

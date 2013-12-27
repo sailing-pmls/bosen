@@ -52,9 +52,7 @@ class LDASampler {
 
     // RunSampler() is concurrent. It first InitTopic() in parallel, reach a
     // barrier until all threads are finished, and then SampleOneIteration() in
-    // parallel. It runs until processing (num_iterations * num_threads *
-    // num_words_per_thread_per_iteration) words, where the last parameter is
-    // user defined.
+    // parallel. 
     void RunSampler();
 
   private:    // private functions.
@@ -68,10 +66,11 @@ class LDASampler {
     // Compute ln P(w | z) and ln P(z) in parallel respectively. Both start with
     // a process barrier that blocks all threads. Note that ln P(w | z) is only
     // computed on local words. 
-    // TODO(xun): how to execute the latter one only on one machine? plus gather
-    // the word likelihood. MPI_Reduce?!
     void ComputeLocalWordLikelihood();
     void ComputeDocLikelihood();
+
+    // dump 
+    void Dump();
 
     void PrintTopWords();
 

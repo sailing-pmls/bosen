@@ -372,4 +372,8 @@ wcmap_t WordSampler::GetWordCountMap(int topic) {
   return temp;
 }
 
+std::string WordSampler::Print() {
+  return std::to_string(word_) + topic_counts_.print() + "\n";
+}
+
 }   // namespace lda
