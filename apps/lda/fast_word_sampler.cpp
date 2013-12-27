@@ -104,74 +104,10 @@ void WordSampler::InitTopicsUniform() {
   } // end of for every doc topic pair
 }
 
-double WordSampler::Sample(rng_t *my_rng) {
+void WordSampler::Sample(rng_t *my_rng) {
   Context& context = Context::get_instance();
   double beta_sum = context.get_double("beta_sum");
   beta_sum_ = beta_sum;
-
-#ifdef LOCAL_SCHED
-  // Before sampling, compute old word log likelihood.
-  double old_word_log_likelihood = ComputeWordLikelihood();
-#endif
-
-  // Take a snapshot of sum row
-  //memset(sum_row_cache_, 0, sizeof(int32_t) * num_topics_);
-  petuum::DenseRow<int>& sum_row_ref = sum_table_->GetRowUnsafe(0);
-  for (int k = 0; k < num_topics_; ++k) {
-    //sum_row_cache_[k] = std::max(sum_table_->Get(0, k), 0);
-    sum_row_cache_[k] = std::max(sum_row_ref[k], 0);
-  }
-
-  for (auto& doc_tokens : z_) {
-    int32_t doc_id = doc_tokens.first;
-    // Take a snapshot of this row
-    //memset(doc_topic_cache_, 0, sizeof(int32_t) * num_topics_);
-    petuum::DenseRow<int>& doc_topic_row_ref = doc_topic_table_->GetRowUnsafe(doc_id);
-    for (int k = 0; k < num_topics_; ++k) {
-      //doc_topic_cache_[k] = std::max(doc_topic_table_->Get(doc_id, k), 0);
-      doc_topic_cache_[k] = std::max(doc_topic_row_ref[k], 0);
-    }
-    //memset(Ccoeff, 0, sizeof(double) * num_topics_);
-    //memset(Cval, 0, sizeof(double) * num_topics_);
-    Abar = 0.0;
-    Bbar = 0.0;
-    double *cc_index = Ccoeff;
-    register double reg_denom = 0;
-    register double alpha_beta = alpha_ * beta_;
-    for (topic_t k = 0; k < num_topics_; ++k) {
-      reg_denom = sum_row_cache_[k] + beta_sum_;
-      Abar += alpha_beta / reg_denom;
-      register int reg_dtc = doc_topic_cache_[k];
-      if (reg_dtc > 0) {
-        Bbar += beta_ * reg_dtc / reg_denom;
-        *cc_index = (alpha_ + reg_dtc) / reg_denom;
-      } else {
-        *cc_index = alpha_ / reg_denom;
-      }
-      ++cc_index;
-    }
-    FastGibbsSampling(doc_id,
-        doc_tokens.second,
-        my_rng);
-  } // end of sampling in one doc
-
-#ifdef LOCAL_SCHED
-  double new_word_log_likelihood = ComputeWordLikelihood();
-  return new_word_log_likelihood - old_word_log_likelihood;
-#else
-  return 0;
-#endif
-}
-
-double WordSampler::SampleXY(rng_t *my_rng) {
-  Context& context = Context::get_instance();
-  double beta_sum = context.get_double("beta_sum");
-  beta_sum_ = beta_sum;
-
-#ifdef LOCAL_SCHED
-  // Before sampling, compute old word log likelihood.
-  double old_word_log_likelihood = ComputeWordLikelihood();
-#endif
 
   // Take a snapshot of sum row
   petuum::DenseRow<int>& sum_row_ref = sum_table_->GetRowUnsafe(0);
@@ -300,20 +236,11 @@ double WordSampler::SampleXY(rng_t *my_rng) {
       }
     } // end of every token
   } // end of sampling in one doc
-
-#ifdef LOCAL_SCHED
-  double new_word_log_likelihood = ComputeWordLikelihood();
-  return new_word_log_likelihood - old_word_log_likelihood;
-#else
-  return 0;
-#endif
 }
 
 void WordSampler::FastGibbsSampling(int32_t doc_id,
     std::vector<int32_t> &topic_assignments,
     rng_t *rng) {
-  Context& context = Context::get_instance();
-
   double alpha_beta = alpha_ * beta_;
   for (auto& old_topic : topic_assignments) {
     // Decrement
@@ -421,14 +348,7 @@ void WordSampler::FastGibbsSampling(int32_t doc_id,
 }
 
 double WordSampler::ComputeWordLikelihood() {
-  Context& context = Context::get_instance();
-  int32_t num_topics = context.get_int32("num_topics");
-  double beta = context.get_double("beta");
-
   double word_log_likelihood = 0.0;
-  int32_t num_non_zero = 0;
-  int32_t word_topic_count;
-
   int length = topic_counts_.length;
   for (int j = 0; j < length; ++j) {
     cnt_topic_t cnt_top = topic_counts_.items[j];

@@ -62,12 +62,10 @@ DEFINE_int32(num_words_per_thread_per_iteration, 1000,
     "Number of words (vocabs) to sample per thread per iteration.");
 DEFINE_int32(compute_ll_interval, 10,
     "Copmute log likelihood over local dataset on every N iterations");
-DEFINE_int32(head_client, 0, "If it is the contributor of doc likelihood");
+DEFINE_bool(head_client, false, "If it is the contributor of doc likelihood");
 
 // Misc
-DEFINE_int32(max_queue_size, 10, "When do we say a queue is full");
 DEFINE_int32(num_top_words, 10, "Num of top words to display");
-DEFINE_int32(use_xy_sampler, 1, "0:no else: yes");
 
 
 int main(int argc, char* argv[]) {
@@ -78,7 +76,7 @@ int main(int argc, char* argv[]) {
     << " server_file: " << FLAGS_server_file
     << " num_threads: " << FLAGS_num_threads;
 
-  LOG_IF(INFO, FLAGS_head_client > 0) << "client " << FLAGS_client_id
+  LOG_IF(INFO, FLAGS_head_client) << "client " << FLAGS_client_id
       << " is the ONE AND ONLY head client";
 
   // Initialize TableGroup.

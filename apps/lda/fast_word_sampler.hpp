@@ -55,11 +55,7 @@ class WordSampler {
     // 0~(K-1).
     void InitTopicsUniform();
 
-    // Sample (using collapsed Gibbs sampling) all occurrences of word_
-    // across all docs and modify global statistics. Return delta =
-    // |new_word_log_likelihood - old_word_log_likelihood|.
-    double Sample(rng_t *my_rng);
-    double SampleXY(rng_t *my_rng);
+    void Sample(rng_t *my_rng);
 
     // Compute the contribution of a word to the log likelihood.
     double ComputeWordLikelihood();

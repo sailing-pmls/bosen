@@ -14,7 +14,6 @@ num_client_threads=$3
 num_topics=100
 num_iterations=10
 compute_ll_interval=1
-use_xy_sampler=0
 
 # Find other Petuum paths by using the script's path
 app_prog=lda_main
@@ -48,7 +47,6 @@ for ip in $host_list; do
     LD_LIBRARY_PATH=$third_party_lib:${LD_LIBRARY_PATH} GLOG_logtostderr=true \
     GLOG_v=-1  GLOG_vmodule="" \
     $lda_path \
-    --use_xy_sampler=$use_xy_sampler \
     --server_file=$host_file \
     --config_file=$config_file \
     --num_threads=$num_client_threads \
@@ -62,4 +60,3 @@ for ip in $host_list; do
   
   client_rank=$(( client_rank+1 ))
 done
-    #$project_root/third_party/bin/operf \

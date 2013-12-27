@@ -64,8 +64,7 @@ LDASampler::LDASampler(petuum::TableGroup<int32_t>* table_group,
                        CountTable* summary_row,
                        CountTable* doc_topic_table)
                        //CountTable* likelihood_table)
-  : num_words_initialized_(0), thread_counter_(0),
-    num_words_sampled_(0), average_delta_(0.0) {
+  : num_words_initialized_(0), thread_counter_(0) {
   // Get the tables.
   CHECK_NOTNULL(table_group);
   CHECK_NOTNULL(summary_row);
@@ -77,13 +76,6 @@ LDASampler::LDASampler(petuum::TableGroup<int32_t>* table_group,
   //likelihood_table_ = likelihood_table;
 
   Context& context = Context::get_instance();
-#ifdef LOCAL_SCHED
-  // Construct LocalScheduler
-  int32_t max_queue_size = context.get_int32("max_queue_size");
-  petuum::LocalSchedulerConfig scheduler_config;
-  scheduler_config.queue_capacity = max_queue_size;
-  scheduler_.reset(new petuum::LocalScheduler(scheduler_config));
-#endif
 
   // Initialize process barrier.
   int32_t num_threads = context.get_int32("num_threads");
@@ -93,16 +85,11 @@ LDASampler::LDASampler(petuum::TableGroup<int32_t>* table_group,
 
   num_iterations_ = context.get_int32("num_iterations");
   compute_ll_interval_ = context.get_int32("compute_ll_interval");
-#ifdef LOCAL_SCHED
-  num_words_per_thread_per_iteration_ =
-    context.get_int32("num_words_per_thread_per_iteration");
-#endif
 }
 
 void LDASampler::ReadData(bool zero_indexed) {
   Context& context = Context::get_instance();
   int32_t num_topics = context.get_int32("num_topics");
-  int32_t num_iterations = context.get_int32("num_iterations");
   double beta = context.get_double("beta");
   double alpha = context.get_double("alpha");
   std::string data_file = context.get_string("data_file");
@@ -126,7 +113,7 @@ void LDASampler::ReadData(bool zero_indexed) {
     ++num_global_words;
   }
   CHECK_EQ(num_global_words, dict_.size());
-  context.put_int32("num_global_words", num_global_words);
+  context.set("num_global_words", num_global_words);
   CHECK_EQ(fclose(vocab_stream), 0) << "Failed to close file" << vocab_file;
   LOG(INFO) << "Num of Global Words: " << num_global_words;
 
@@ -139,7 +126,7 @@ void LDASampler::ReadData(bool zero_indexed) {
   int num_global_docs;
   CHECK_NE(getline(&line, &num_bytes, data_stream), -1);
   sscanf(line, "%d", &num_global_docs);
-  context.put_int32("num_docs", num_global_docs);
+  context.set("num_docs", num_global_docs);
   LOG(INFO) << "Num of Training Docs: " << num_global_docs;
 
   int32_t num_local_words = 0;
@@ -160,13 +147,13 @@ void LDASampler::ReadData(bool zero_indexed) {
     ++num_local_words;
   }
   free(line);
-  context.put_int32("num_local_words", num_local_words);
+  context.set("num_local_words", num_local_words);
   CHECK_EQ(fclose(data_stream), 0) << "Failed to close file" << data_file;
   LOG(INFO) << "Num of Local Words: " << num_local_words;
 
   // Assuming symmetric Dirichlet prior
-  context.put_double("beta_sum", beta * num_global_words);
-  context.put_double("alpha_sum", alpha * num_topics);
+  context.set("beta_sum", beta * num_global_words);
+  context.set("alpha_sum", alpha * num_topics);
 
   // Initialize word_iterator_ while it's still single threaded.
   word_iterator_ = word_samplers_.begin();
@@ -183,7 +170,7 @@ void LDASampler::RunSampler() {
   // Needed to collect per-thread stats.
   Context& context = Context::get_instance();
   int32_t num_threads = context.get_int32("num_threads");
-  int32_t head_client = context.get_int32("head_client");
+  bool head_client = context.get_bool("head_client");
   int32_t client_id = context.get_int32("client_id");
 
   // Register thread on PS.
@@ -202,13 +189,6 @@ void LDASampler::RunSampler() {
       << "Num of processed words mismatch.";
   }
 
-  // Spawn scheduler, start to produce items. (StartScheduler() is idempotent
-  // and thread safe.)
-#ifdef LOCAL_SCHED
-  LOG_WHO << "Start scheduler";
-  scheduler_->StartScheduler();
-#endif
-
   // Flush the oplog and invalidate all caches.
   table_group_->GlobalBarrier();
 
@@ -217,40 +197,27 @@ void LDASampler::RunSampler() {
   // Main for loop
   for (int iter = 1; iter <= num_iterations_; ++iter) {
     num_tokens_iteration_ = 0;
-#ifndef LOCAL_SCHED
     word_iterator_ = word_samplers_.begin();
-#endif
     process_barrier_->wait();
-    double t1, t2, t3, t4;
+    double t1;
     if (sampler_thread_data_->thread_id == 0) {
       t1 = get_time();
     }
 
     SampleOneIteration();
-    if (sampler_thread_data_->thread_id == 0) {
-      t2 = get_time();
-    }
     table_group_->Iterate();
-    if (sampler_thread_data_->thread_id == 0) {
-      t3 = get_time();
-    }
 
     // Compute likelihood
     process_barrier_->wait();
     if (iter % compute_ll_interval_ == 0 || iter == num_iterations_) {
       ComputeLocalWordLikelihood();
-      //likelihood_table_->Inc(iter, 0, (int)word_likelihood_);
       LOG_WHO
           << "Iter: " << iter << " likelihood_part_1 " << word_likelihood_;
-      if (head_client > 0) {
+      if (head_client) {
         ComputeDocLikelihood();
-        //likelihood_table_->Inc(iter, 0, (int)doc_likelihood_);
         LOG_WHO
             << "Iter: " << iter << " likelihood_part_2 " << doc_likelihood_;
       }
-    }
-    if (sampler_thread_data_->thread_id == 0) {
-      t4 = get_time();
     }
 
     // Barriers are used to collect stats.
@@ -259,12 +226,9 @@ void LDASampler::RunSampler() {
     if (sampler_thread_data_->thread_id == 0) {
       seconds_this_iter = get_time() - t1;
       LOG_WHO
-        << "Iter: " << iter << "\t"
-        << "gibbs: " << t2 - t1 << " "
-        << "LL: " << ((t4 - t3 > 0.001) ? (t4-t3) : 0)
-        << " Total: " << seconds_this_iter
-        //<< " num_tokens: " << num_tokens_iteration_
-        << " Throughput: "
+        << "Iter: " << iter
+        << "\tTook: " << seconds_this_iter << " sec"
+        << "\tThroughput: "
         << static_cast<double>(num_tokens_iteration_) /
         num_threads / seconds_this_iter << " token/(thread*sec)";
     }
@@ -277,32 +241,7 @@ void LDASampler::RunSampler() {
     */
   }
 
-  // Read the likelihood
-  //if (head_client > 0 && sampler_thread_data_->thread_id == 0) {
-  //  for (int iter = 1; iter <= num_iterations_; ++iter) {
-  //    if (iter % compute_ll_interval_ == 0 || iter == num_iterations_) {
-  //      int32_t ll = likelihood_table_->Get(iter, 0);
-  //      LOG(INFO) << "Iteration " << iter
-  //          << ":\tlog likelihood = " << ll;
-  //    }
-  //  }
-  //}
-
   table_group_->DeregisterThread();
-
-#ifdef LOCAL_SCHED
-  // Need to make sure all execution threads are done with the scheduler
-  // before shutting the scheduler down.
-  process_barrier_->wait();
-
-  // ShutDown is idempotent and thread safe.
-  //LOG_WHO << "Shutdown scheduler";
-  VLOG(2) << "Thread " << sampler_thread_data_->thread_id
-    << " is shutting down scheduler";
-  scheduler_->ShutDown();
-  VLOG(2) << "Thread " << sampler_thread_data_->thread_id
-    << " has shut down scheduler";
-#endif
 }
 
 // ==================== Private Methods ===================
@@ -327,23 +266,11 @@ int32_t LDASampler::InitTopics() {
     // Do init topics
     word_samplers_[word_id].InitTopicsUniform();
     ++num_words_initialized;
-
-#ifdef LOCAL_SCHED
-    // Push to initial task
-    scheduler_->AddTask(word_id);
-#endif
   }
   return num_words_initialized;
 }
 
 void LDASampler::SampleOneIteration() {
-  Context& context = Context::get_instance();
-#ifdef LOCAL_SCHED
-  for (int i = 0; i < num_words_per_thread_per_iteration_; ++i) {
-    // Get one from queue
-    petuum::LocalSchedulerTask task = scheduler_->GetTask();
-    int32_t word = task.task_id;
-#else
   while (true) {
     int32_t word = 0;
 
@@ -358,44 +285,17 @@ void LDASampler::SampleOneIteration() {
         ++word_iterator_;
       }
     }
-#endif
 
     // Do sampling
-    //int32_t word = (sampler_thread_data_->thread_id + 3 * i) % 52000; // HACK!
-    double delta;
-    if (context.get_int32("use_xy_sampler") == 0) {
-      delta = word_samplers_[word].Sample(
+    word_samplers_[word].Sample(
           sampler_thread_data_->zero_one_generator_.get());
-    } else {
-      delta = word_samplers_[word].SampleXY(
-          sampler_thread_data_->zero_one_generator_.get());
-    }
 
     // Stats collection
     num_tokens_iteration_ += word_samplers_[word].GetNumTokens();
-
-#ifdef LOCAL_SCHED
-    if (delta <= 0) {
-      delta = average_delta_ / 2; // a small number
-    }
-
-    {
-      boost::lock_guard<boost::mutex> guard(average_delta_lock_);
-      ++num_words_sampled_;
-      average_delta_ += (delta - average_delta_) / num_words_sampled_;
-    }
-
-    // Give it back to scheduler
-    petuum::LocalSchedulerTaskResult result(word, delta);
-    scheduler_->ReturnResult(result);
-#endif
   }   // end of for or while loop.
 }
 
 void LDASampler::ComputeLocalWordLikelihood() {
-  Context& context = Context::get_instance();
-  int32_t num_topics = context.get_int32("num_topics");
-
   // Reset
   if (sampler_thread_data_->thread_id == 0) {
     word_likelihood_ = 0;

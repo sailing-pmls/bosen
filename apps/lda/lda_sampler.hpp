@@ -32,10 +32,6 @@
 #include "types.hpp"
 #include "fast_word_sampler.hpp"
 
-#ifdef LOCAL_SCHED
-#include "local_scheduler/local_scheduler.hpp"
-#endif
-
 #include <boost/unordered_map.hpp>
 #include <boost/thread/tss.hpp>
 #include <boost/thread.hpp>
@@ -43,10 +39,7 @@
 
 namespace lda {
 
-// A coordinator of word-based Gibbs sampler. LocalScheduler produces words to
-// sample, sampler thread takes one word (id) from candidate queue, pick
-// corresponding word sampler from the pool, execute, and push the value to
-// finished queue to notify the scheduler.
+// A coordinator of word-based Gibbs sampler.
 class LDASampler {
   public:
     LDASampler(petuum::TableGroup<int32_t>* table_group,
@@ -86,11 +79,6 @@ class LDASampler {
     // Number of iterations to run.
     int32_t num_iterations_;
 
-#ifdef LOCAL_SCHED
-    // Number of words (vocabs) per thread per iteration.
-    int32_t num_words_per_thread_per_iteration_;
-#endif
-
     // Compute log likelihood on every N iterations
     int32_t compute_ll_interval_;
 
@@ -115,11 +103,6 @@ class LDASampler {
     // Mutex for init topics in parallel.
     boost::mutex word_lock_;
 
-#ifdef LOCAL_SCHED
-    // LocalScheduler
-    boost::scoped_ptr<petuum::LocalScheduler> scheduler_;
-#endif
-
     // Track number of words (vocabs) initialized by InitTopic().
     std::atomic<int32_t> num_words_initialized_;
 
@@ -141,12 +124,6 @@ class LDASampler {
 
     // Used to get thread_id for each thread.
     std::atomic<int32_t> thread_counter_;
-
-    // Used to keep track of average delta value, so that we can generate
-    // moderately small delta in special cases like delta is negative.
-    int32_t num_words_sampled_;
-    double average_delta_;
-    boost::mutex average_delta_lock_;
 
     // Used to compute word likelihood.
     double word_likelihood_;

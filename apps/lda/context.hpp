@@ -29,9 +29,8 @@
 
 #pragma once
 
-#include <boost/unordered_map.hpp>
-
 #include <string>
+#include <unordered_map>
 
 namespace lda {
 
@@ -42,20 +41,22 @@ class Context {
 public:
   static Context& get_instance();
 
-  int32_t get_int32(std::string key);
+  int get_int32(std::string key);
   double get_double(std::string key);
+  bool get_bool(std::string key);
   std::string get_string(std::string key);
 
-  void put_int32(std::string key, int32_t value);
-  void put_double(std::string key, double value);
-  void put_string(std::string key, std::string value);
+  void set(std::string key, int value);
+  void set(std::string key, double value);
+  void set(std::string key, bool value);
+  void set(std::string key, std::string value);
 
 private:
   // Private constructor. Store all the gflags values.
   Context();
 
   // Underlying data structure
-  boost::unordered_map<std::string, std::string> ctx_;
+  std::unordered_map<std::string, std::string> ctx_;
 };
 
 }   // namespace lda
