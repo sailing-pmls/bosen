@@ -70,8 +70,6 @@ class ThreadSafeLRURowStorage : public LRURowStorage<ROW, V> {
 
     virtual void Erase(int32_t row_id);
   
-  virtual void SetThrStats(StatsObj *thr_stats, int32_t table_id);
-
   private:
     // Global mutex that every operation locks.
     // Comment(wdai): Use mutable so const functions can lock it as well.
@@ -154,14 +152,6 @@ template<template<typename> class ROW, typename V>
 void ThreadSafeLRURowStorage<ROW, V>::Erase(int32_t row_id) {
   boost::lock_guard<boost::mutex> guard(mutex_);
   return LRURowStorage<ROW, V>::Erase(row_id);
-}
-template<template<typename> class ROW, typename V>
-void ThreadSafeLRURowStorage<ROW, V>::SetThrStats(StatsObj *thr_stats, 
-						  int32_t table_id) {
-#ifdef PETUUM_stats
-  boost::lock_guard<boost::mutex> guard(mutex_);
-  LRURowStorage<ROW, V>::SetThrStats(thr_stats, table_id);
-#endif
 }
 }  // namespace petuum
 

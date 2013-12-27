@@ -37,7 +37,6 @@
 #include "petuum_ps/consistency/consistency_policy.hpp"
 #include "petuum_ps/consistency/consistency_controller.hpp"
 #include "petuum_ps/proxy/table_partitioner.hpp"
-#include <petuum_ps/stats/stats.hpp>
 #include <sstream>
 #include <boost/utility.hpp>
 
@@ -118,8 +117,7 @@ class Table : boost::noncopyable {
     // initialize process level table. Only TableGroup can access this
     // constructor.
     explicit Table(int32_t table_id, const TableConfig& _table_config,
-		   ClientProxy<V>& client_proxy, 
-		   boost::thread_specific_ptr<StatsObj> &thr_stats);
+		   ClientProxy<V>& client_proxy);
 
     // Comment(wdai): We hide Iterate() at Table level to force user to use
     // Iterate() in TableGroup.
@@ -134,19 +132,13 @@ class Table : boost::noncopyable {
   ConsistencyController<ROW, V> controller_;
   
   boost::scoped_ptr<SspPolicy<V> > ssp_policy_;
-  
-  boost::thread_specific_ptr<StatsObj> &thr_stats_;
-  std::string table_id_str; // just to facilitate StatsObj
 };
 
 // ==================== Table Implementation ====================
 
 template<template<typename> class ROW, typename V>
 Table<ROW, V>::Table(int32_t table_id, const TableConfig& table_config,
-		     ClientProxy<V>& client_proxy, 
-		     boost::thread_specific_ptr<StatsObj> &thr_stats):
-  thr_stats_(thr_stats),
-  controller_(thr_stats){
+		     ClientProxy<V>& client_proxy) {
 
   // Construct SSP
   ssp_policy_.reset(new SspPolicy<V>(table_config.table_staleness));
@@ -174,10 +166,6 @@ Table<ROW, V>::Table(int32_t table_id, const TableConfig& table_config,
   controller_.Init(controller_config);
   VLOG(0) << "Table " << table_id << " created with staleness "
     << table_config.table_staleness;
-
-  std::stringstream ss;
-  ss << table_id;
-  table_id_str = std::string("Table.") + ss.str();
 }
 
 template<template<typename> class ROW, typename V>

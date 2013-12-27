@@ -36,7 +36,6 @@
 #include "petuum_ps/util/vector_clock.hpp"
 #include "petuum_ps/storage/thread_safe_lru_row_storage.hpp"
 #include "petuum_ps/proxy/client_proxy.hpp"
-#include "petuum_ps/stats/stats.hpp"
 
 #include <atomic>
 #include <glog/logging.h>
@@ -56,9 +55,9 @@ class ThreadTableInfo {
   public:
     ThreadTableInfo(int32_t thread_id,
 		    const OpLogManagerConfig& op_log_config,
-		    StatsObj &thr_stats, int32_t table_id) :
-      thread_id_(thread_id), iter_(0), thr_stats_(thr_stats),
-      op_log_manager_(op_log_config, thr_stats, table_id),
+		    int32_t table_id) :
+      thread_id_(thread_id), iter_(0),
+      op_log_manager_(op_log_config, table_id),
       table_id_(table_id){
         VLOG(3) << "ThreadTableInfo created for thread_id = " << thread_id;
       }
@@ -87,8 +86,6 @@ class ThreadTableInfo {
     // thread_id_ is used in clock manager.
     int32_t thread_id_;
 
-    StatsObj &thr_stats_;
-
     // OpLog associated with a particular table.
     OpLogManager<ROW, V> op_log_manager_;
 
@@ -114,14 +111,13 @@ template<template<typename> class ROW, typename V>
 class ConsistencyController : boost::noncopyable {
 public:
   // Default constructor requires a Init() call.
-  ConsistencyController(boost::thread_specific_ptr<StatsObj> &thr_stats);
+  ConsistencyController();
   
   void Init(const ConsistencyControllerConfig<V>& controller_config);
 
   // TODO(wdai) : Use decision_info_(*this) in initialization list.
   explicit ConsistencyController(
-				 const ConsistencyControllerConfig<V>& controller_config,
-				 boost::thread_specific_ptr<StatsObj> &thr_stats);
+      const ConsistencyControllerConfig<V>& controller_config);
 
     // Read an entry in the table. The implementation should check whether to
     // pull with pull_policy_. The implementation should be thread-safe.
@@ -221,23 +217,16 @@ public:
 
     // Process clock.
     VectorClock vector_clock_;
-
-  boost::thread_specific_ptr<StatsObj> &thr_stats_;
-  std::string table_id_str; // just to facilitate StatsObj
 };
 
 // ================ ConsistencyController Implementation ================
 
 template<template<typename> class ROW, typename V>
-ConsistencyController<ROW, V>::ConsistencyController(
-				     boost::thread_specific_ptr<StatsObj> &thr_stats):
-  thr_stats_(thr_stats){ }
+ConsistencyController<ROW, V>::ConsistencyController() { }
 
 template<template<typename> class ROW, typename V>
 ConsistencyController<ROW, V>::ConsistencyController(
-			const ConsistencyControllerConfig<V>& controller_config,
-			boost::thread_specific_ptr<StatsObj> &thr_stats):
- thr_stats_(thr_stats){
+      const ConsistencyControllerConfig<V>& controller_config) {
   Init(controller_config);
 }
 
@@ -275,10 +264,6 @@ void ConsistencyController<ROW, V>::Init(
   barrier_.reset(new boost::barrier(controller_config.num_threads));
   nth_thread_ = 0;
 
-  std::stringstream ss;
-  ss << table_id_;
-  table_id_str = std::string("Table.") + ss.str();
-
   VLOG(3) << "ConsistencyController created for table " << table_id_;
 
 }
@@ -290,7 +275,7 @@ void ConsistencyController<ROW, V>::RegisterThread() {
     thread_table_info_.reset(new ThreadTableInfo<ROW, V>(
           nth_thread_++,
           controller_config_.op_log_config,
-          *thr_stats_, table_id_));
+          table_id_));
     // Register with vector_clock_;
     CHECK_EQ(0, vector_clock_.AddClock(thread_table_info_->get_thread_id()));
     VLOG(3) << "Initialized thread_table_info_ for thread_id = "
@@ -302,13 +287,6 @@ void ConsistencyController<ROW, V>::RegisterThread() {
   }
   VLOG(3) << "Moving past barier since all " << controller_config_.num_threads
     << " threads are registered.";
-#ifdef PETUUM_stats
-  StatsObj::FieldConfig fconfig;                                                                     
-  thr_stats_->RegField("InsertThreadCacheRow.microsec", fconfig);                     
-  thr_stats_->RegField("ProcessCacheGetPutRow.microsec", fconfig);
-  thr_stats_->RegField("ThreadCacheGetRowUnsafe", fconfig);
-  thr_stats_->RegField("FetchServerRow", fconfig);
-#endif 
 }
 
 template<template<typename> class ROW, typename V>
@@ -397,15 +375,7 @@ ROW<V>& ConsistencyController<ROW, V>::DoGetRowUnsafe(int32_t row_id) {
   OpLogManager<ROW, V>& op_log_manager = thread_table_info_->GetOpLogManager();
   int32_t row_iter;
 
-#ifdef PETUUM_stats
-  thr_stats_->StartTimer("ThreadCacheGetRowUnsafe");
-#endif
-
   ROW<V>* row_ptr = op_log_manager.GetRowUnsafe(row_id, &row_iter);
-
-#ifdef PETUUM_stats
-  CHECK_GE(thr_stats_->EndTimer("ThreadCacheGetRowUnsafe"), 0);
-#endif
 
   if(row_ptr != NULL) {
     // row_id is in thread cache. Check against policy now.
@@ -421,36 +391,15 @@ ROW<V>& ConsistencyController<ROW, V>::DoGetRowUnsafe(int32_t row_id) {
   VLOG(3) << "Requesting row " << row_id << " from process cache...";
   ROW<V> row;
   
-#ifdef PETUUM_stats
-  thr_stats_->StartTimer("ProcessCacheGetPutRow.microsec");
-#endif
   int proc_cache_hit = process_cache_->GetRow(row_id, &row, stalest_row_iter);
-
-#ifdef PETUUM_stats
-  CHECK_GE(thr_stats_->EndTimer("ProcessCacheGetPutRow.microsec"), 0);
-#endif
 
   if(proc_cache_hit > 0) {
     VLOG(3) << "Got row " << row_id << " from process cache.";
     // row_id is in process cache and is fresh enough! Put it into thread cache.
 
-
-#ifdef PETUUM_stats
-    thr_stats_->StartTimer("InsertThreadCacheRow.microsec");
-#endif
     op_log_manager.InsertThreadCache(row_id, row);
     // Get it from thread cache.
-#ifdef PETUUM_stats
-    CHECK_GE(thr_stats_->EndTimer("InsertThreadCacheRow.microsec"), 0);
-#endif
-    
-#ifdef PETUUM_stats
-    thr_stats_->StartTimer("ThreadCacheGetRowUnsafe");
-#endif
     ROW<V>* row_ptr2 = op_log_manager.GetRowUnsafe(row_id, &row_iter);
-#ifdef PETUUM_stats
-    CHECK_GE(thr_stats_->EndTimer("ThreadCacheGetRowUnsafe"), 0);
-#endif
 
     if (row_ptr2 == NULL) {
       LOG(FATAL) << "We just inserted row " << row_id
@@ -463,18 +412,10 @@ ROW<V>& ConsistencyController<ROW, V>::DoGetRowUnsafe(int32_t row_id) {
 
   // Block and fetch row from server.
   ROW<V> server_row;
-  
-#ifdef PETUUM_stats
-  thr_stats_->StartTimer("FetchServerRow");
-#endif
 
   CHECK_EQ(0, proxy_->RequestGetRowRPC(table_id_, row_id, &server_row,
         stalest_row_iter));
 
-#ifdef PETUUM_stats
-  CHECK_GE(thr_stats_->EndTimer("FetchServerRow"), 0);
-#endif
-  
   VLOG(3) << "Got row " << row_id << " from server with iteration "
     << server_row.get_iteration() << " fresher than required "
     << stalest_row_iter;
@@ -483,35 +424,12 @@ ROW<V>& ConsistencyController<ROW, V>::DoGetRowUnsafe(int32_t row_id) {
 
   // Set return value.
   // Put server_row to both process_cache_ and thread_cache_.
-
-#ifdef PETUUM_stats
-  thr_stats_->StartTimer("ProcessCacheGetPutRow.microsec");
-#endif
-
   process_cache_->PutRow(row_id, server_row);
 
-#ifdef PETUUM_stats
-  CHECK_GE(thr_stats_->EndTimer("ProcessCacheGetPutRow.microsec"), 0);
-#endif
-
-#ifdef PETUUM_stats
-  thr_stats_->StartTimer("InsertThreadCacheRow.microsec");
-#endif
-  
   op_log_manager.InsertThreadCache(row_id, server_row);
 
-#ifdef PETUUM_stats
-  CHECK_GE(thr_stats_->EndTimer("InsertThreadCacheRow.microsec"), 0);
-#endif
-
   // Get it from thread cache.
-#ifdef PETUUM_stats
-  thr_stats_->StartTimer("ThreadCacheGetRowUnsafe");
-#endif
   ROW<V>* row_ptr3 = op_log_manager.GetRowUnsafe(row_id, &row_iter);
-#ifdef PETUUM_stats
-  CHECK_GE(thr_stats_->EndTimer("ThreadCacheGetRowUnsafe"), 0);
-#endif  
 
   if (row_ptr3 == NULL) {
     LOG(FATAL) << "We just inserted row " << row_id

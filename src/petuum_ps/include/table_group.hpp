@@ -39,7 +39,6 @@
 
 #include "petuum_ps/include/table.hpp"
 #include "petuum_ps/proxy/client_proxy.hpp"
-#include <petuum_ps/stats/stats.hpp>
 
 #include <boost/unordered_map.hpp>
 #include <boost/thread.hpp>
@@ -63,12 +62,10 @@ struct TableGroupConfig {
   int32_t num_threads;  // number of execution threads on this client.
   std::vector<ServerInfo> servers_;
   zmq::context_t *zmq_ctx_;
-  std::string stats_output_dir_;
 
   TableGroupConfig(int32_t id, int num_threads, std::vector<ServerInfo>& ser,
-		   zmq::context_t *ctx = NULL, std::string _stats_output_dir = ".")
-    : client_id(id), num_threads(num_threads), servers_(ser), zmq_ctx_(ctx),
-      stats_output_dir_(_stats_output_dir){
+		   zmq::context_t *ctx = NULL)
+    : client_id(id), num_threads(num_threads), servers_(ser), zmq_ctx_(ctx) {
       CHECK_GT(num_threads, 0)
         << "Number of executing threads has to be >0 on a client.";
     }
@@ -133,8 +130,6 @@ private:
 
   // Maximum staleness among the tables.
   int32_t max_staleness_;
-
-  boost::thread_specific_ptr<StatsObj> thr_stats_;
 };
 
 template<typename V>
@@ -197,8 +192,7 @@ DenseTable<V>& TableGroup<V>::CreateDenseTable(int32_t table_id,
   // Inject num_threads (a run time information) before creating table.
   table_config.num_threads = config_.num_threads;
   table_config.num_servers = config_.servers_.size();
-  DenseTable<V> *table = new DenseTable<V>(table_id, table_config, *proxy_,
-					   thr_stats_);
+  DenseTable<V> *table = new DenseTable<V>(table_id, table_config, *proxy_);
 
   tables_[table_id] = table;
 
@@ -218,32 +212,12 @@ void TableGroup<V>::Iterate() {
 }
 
 template <typename V>
-int TableGroup<V>::RegisterThread()
-{
-
-#ifdef PETUUM_stats
-  pid_t tid = syscall(SYS_gettid);
-  std::stringstream ss;
-  ss << tid;
-  std::string fname = config_.stats_output_dir_ + "/" 
-    + "stats." + ss.str() + ".yaml";
-  thr_stats_.reset(new StatsObj(fname));
-
-#endif
-
+int TableGroup<V>::RegisterThread() {
   return proxy_->RegisterThread();
 }
 
 template <typename V>
-int TableGroup<V>::DeregisterThread()
-{
-
-#ifdef PETUUM_stats
-  int ret = thr_stats_->WriteToFile();
-  assert(ret == 0);
-  thr_stats_.reset();
-#endif
-
+int TableGroup<V>::DeregisterThread() {
   return proxy_->DeregisterThread();
 }
 

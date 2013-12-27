@@ -1,5 +1,5 @@
 # Boost is too heavy to host on github..
-THIRD_PARTY_HOST = http://www.cs.cmu.edu/~jinlianw/third_party/
+THIRD_PARTY_HOST = http://www.cs.cmu.edu/~jinlianw/third_party
 BOOST_HOST = http://downloads.sourceforge.net/project/boost/boost/1.54.0
 
 third_party: gflags \
@@ -7,8 +7,7 @@ third_party: gflags \
              zeromq \
              boost \
              gperftools \
-             libconfig \
-						 yaml-cpp
+             libconfig
 
 .PHONY: third_party
 
@@ -72,7 +71,7 @@ $(BOOST_INCLUDE): $(BOOST_SRC)
 	tar jxf $< -C $(THIRD_PARTY_SRC)
 	cd $(basename $(basename $<)); \
 	./bootstrap.sh \
-		--with-libraries=system,thread,date_time,program_options \
+		--with-libraries=system,thread \
 		--prefix=$(THIRD_PARTY); \
 	./b2 install
 
@@ -111,20 +110,3 @@ $(LIBCONFIG_LIB): $(LIBCONFIG_SRC)
 $(LIBCONFIG_SRC):
 	wget $(THIRD_PARTY_HOST)/$(@F) -O $@
 
-# ==================== yaml-cpp ===================
-
-YAMLCPP_SRC = $(THIRD_PARTY_SRC)/yaml-cpp-0.5.1.tar.gz
-YAMLCPP_MK = $(THIRD_PARTY_SRC)/yaml-cpp.mk
-YAMLCPP_LIB = $(THIRD_PARTY_LIB)/libyaml-cpp.a
-
-yaml-cpp: boost $(YAMLCPP_LIB)
-
-$(YAMLCPP_LIB): $(YAMLCPP_SRC)
-	tar zxf $< -C $(THIRD_PARTY_SRC)
-	cd $(basename $(basename $<)); \
-		make -f $(YAMLCPP_MK) BOOST_PREFIX=$(THIRD_PARTY) TARGET=$@; \
-		cp -r include/* $(THIRD_PARTY_INCLUDE)/
-
-$(YAMLCPP_SRC):
-	wget $(THIRD_PARTY_HOST)/$(@F) -O $@
-	wget $(THIRD_PARTY_HOST)/$(notdir $(YAMLCPP_MK)) -P $(THIRD_PARTY_SRC)

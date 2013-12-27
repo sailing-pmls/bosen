@@ -32,7 +32,6 @@
 
 #include "petuum_ps/include/configs.hpp"
 #include "petuum_ps/storage/row_storage.hpp"
-#include "petuum_ps/stats/stats.hpp"
 
 #include <boost/bimap.hpp>
 #include <boost/bimap/list_of.hpp>
@@ -169,8 +168,6 @@ class LRURowStorage : public RowStorage<ROW, V> {
     // Eraise if row_id is in active_list_ or inactive_list_. No-op otherwise.
     virtual void Erase(int32_t row_id);
 
-    virtual void SetThrStats(StatsObj *thr_stats, int32_t table_id);
-
   private:
     // Insert a new row into inactive_list_, evicting other row in
     // inactive_list_ if hitting capacity. Note that we never insert a new row
@@ -211,10 +208,6 @@ class LRURowStorage : public RowStorage<ROW, V> {
     // Effective row access count to promote a row in inactive_list_ to
     // active_list_.
     double num_row_access_to_active_;
-
-  StatsObj *thr_stats_;
-
-  std::string table_id_str_;
 };
 
 // =============== LRURowStorage Implementation ===============
@@ -679,10 +672,6 @@ void LRURowStorage<ROW, V>::Erase(int32_t row_id) {
     // We found row_id in inactive_list_. Erase it.
     inactive_list_.left.erase(iit);
   }
-}
-
-template<template<typename> class ROW, typename V>
-void LRURowStorage<ROW, V>::SetThrStats(StatsObj *thr_stats, int32_t table_id){
 }
 
 }  // namespace petuum

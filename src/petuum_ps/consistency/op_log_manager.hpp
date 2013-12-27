@@ -32,7 +32,6 @@
 
 #include "petuum_ps/storage/lru_row_storage.hpp"
 #include "petuum_ps/include/configs.hpp"
-#include "petuum_ps/stats/stats.hpp"
 #include "petuum_ps/proxy/client_proxy.hpp"
 #include "petuum_ps/proxy/table_partitioner.hpp"
 
@@ -97,9 +96,7 @@ class OpLogManager {
     // TODO(wdai): table_id is part of op_log_config, no need for additional
     // parameter.
     OpLogManager(const OpLogManagerConfig& op_log_config, 
-        StatsObj &stats_obj, int32_t table_id);
-
-    //void Init(int thread_cache_capacity, int max_pending_op_logs);
+        int32_t table_id);
 
     // Getters and setters.
     int get_max_pending_op_logs() const;
@@ -191,7 +188,6 @@ class OpLogManager {
     // them.
     OpLogTable op_log_table_;
 
-    // ThreadCache's max size is initialized in Init().
     ThreadCache thread_cache_;
 
     // # of pending EntryOp. This is used to keep OpLog size small.
@@ -204,7 +200,6 @@ class OpLogManager {
 
     // The maximum number of op_logs.
     int max_pending_op_logs_;
-    StatsObj &thr_stats_;
 };
 
 // Deserialization.
@@ -216,13 +211,11 @@ int DeserializeOpLogs(const boost::shared_array<uint8_t>& op_log_bytes,
 
 template<template<typename> class ROW, typename V>
 OpLogManager<ROW, V>::OpLogManager(const OpLogManagerConfig& op_log_config,
-    StatsObj &thr_stats, int32_t table_id) :
+    int32_t table_id) :
   thread_cache_(op_log_config.thread_cache_capacity),
   num_pending_op_logs_(0),
   max_pending_op_logs_(op_log_config.max_pending_op_logs),
-  thr_stats_(thr_stats),
   table_id_(op_log_config.table_id) {
-  thread_cache_.SetThrStats(&thr_stats_, table_id_);
   CHECK_GT(op_log_config.num_servers, 0)
     << "There needs to be at least 1 server.";
   num_servers_ = op_log_config.num_servers;
@@ -234,19 +227,6 @@ OpLogManager<ROW, V>::OpLogManager(const OpLogManagerConfig& op_log_config,
     << op_log_config.thread_cache_capacity;
 }
 
-/*
-   template<template<typename> class ROW, typename V>
- void OpLogManager<ROW, V>::Init(int thread_cache_capacity,
- int max_pending_op_logs) {
- max_pending_op_logs_ = max_pending_op_logs;
- num_pending_op_logs_ = 0;
- thread_cache_.Init(thread_cache_capacity);
- thread_cache_.SetThrStats(&thr_stats_, table_id_);
-
- VLOG(0) << "OpLogManager Init with thread_cache_capacity = "
- << thread_cache_capacity;
- }
- */
 template<template<typename> class ROW, typename V>
 int OpLogManager<ROW, V>::get_max_pending_op_logs() const {
   return max_pending_op_logs_;

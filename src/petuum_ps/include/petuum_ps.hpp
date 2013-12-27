@@ -33,6 +33,5 @@
 #include <petuum_ps/include/table_group.hpp>
 #include <petuum_ps/include/table.hpp>
 #include <petuum_ps/include/configs.hpp>
-#include <petuum_ps/stats/stats.hpp>
 
 #endif
