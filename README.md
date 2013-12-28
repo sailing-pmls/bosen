@@ -38,8 +38,8 @@ Petuum:
 
 Please make sure your default g++ comiler is 4.7 or higher.
 
-Petuum also depends on the following third party libraries, which Petuum's 
-installation script automatically downloads and installs them:
+Petuum also depends on the following third party libraries which Petuum's 
+installation script automatically downloads and installs:
 
 * [0MQ-3.2.2](http://zeromq.org/)
 * [Boost-1.54](http://www.boost.org/)
