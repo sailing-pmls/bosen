@@ -26,7 +26,28 @@ http://petuum.org/
 
 # Installation
 
-Currently Petuum has only been tested on Ubuntu 12.04 LTS. To install, use
+Currently Petuum has only been tested on Ubuntu 12.04 LTS. 
+
+## Prepare dependencies
+
+Users need to install the following softwares and libraries before installing 
+Petuum:
+
+* g++-4.7 or higher
+* uuid-dev
+
+Petuum also depends on the following third party libraries, which Petuum 
+installation script automatically installs them:
+
+* [0MQ-3.2.2](http://zeromq.org/)
+* [Boost-1.54](http://www.boost.org/)
+* [gflags](https://code.google.com/p/gflags/)
+* [glog](https://code.google.com/p/google-glog/)
+* [gperftools](https://code.google.com/p/gperftools/)
+* [libconfig](http://www.hyperrealm.com/libconfig/)
+
+## Installing Petuum
+To install Petuum, use
 
 ``` sh
 # Under project root directory 'petuum'
