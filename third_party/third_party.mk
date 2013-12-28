@@ -2,7 +2,8 @@
 THIRD_PARTY_HOST = http://www.cs.cmu.edu/~jinlianw/third_party
 BOOST_HOST = http://downloads.sourceforge.net/project/boost/boost/1.54.0
 
-third_party: gflags \
+third_party: path \
+             gflags \
              glog \
              zeromq \
              boost \
