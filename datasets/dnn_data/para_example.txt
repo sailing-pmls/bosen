@@ -1,0 +1,5 @@
+num_layers: 5
+num_units_in_each_layer: 100 200 150 80 30
+num_epochs: 3
+stepsize: 0.01
+size_minibatch: 100
