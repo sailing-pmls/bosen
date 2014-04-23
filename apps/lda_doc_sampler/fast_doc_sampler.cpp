@@ -1,31 +1,3 @@
-// Copyright (c) 2014, Sailing Lab
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the <ORGANIZATION> nor the names of its contributors
-// may be used to endorse or promote products derived from this software
-// without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
 // Author: Dai Wei (wdai@cs.cmu.edu)
 // Date: 2014.03.28
 
@@ -38,13 +10,16 @@
 #include <glog/logging.h>
 #include <algorithm>
 #include <time.h>
+#include <sstream>
+#include <string>
 
 namespace lda {
 
-FastDocSampler::FastDocSampler() : rng_engine_(time(NULL)),
+FastDocSampler::FastDocSampler() : //rng_engine_(time(NULL)),
+  rng_engine_(0),
   uniform_zero_one_dist_(0, 1),
   zero_one_rng_(new rng_t(rng_engine_, uniform_zero_one_dist_)) {
-  Context context = Context::get_instance();
+  util::Context& context = util::Context::get_instance();
 
   // Topic model parameters.
   K_ = context.get_int32("num_topics");
@@ -56,7 +31,7 @@ FastDocSampler::FastDocSampler() : rng_engine_(time(NULL)),
 
   // PS tables.
   int32_t summary_table_id = context.get_int32("summary_table_id");
-  int32_t word_topic_table_id = context.get_int32("summary_table_id");
+  int32_t word_topic_table_id = context.get_int32("word_topic_table_id");
   summary_table_ = petuum::TableGroup::GetTableOrDie<int>(summary_table_id);
   word_topic_table_ = petuum::TableGroup::GetTableOrDie<int>(
       word_topic_table_id);
@@ -64,18 +39,41 @@ FastDocSampler::FastDocSampler() : rng_engine_(time(NULL)),
   // Fast sampler variables
   q_coeff_.resize(K_);
   nonzero_q_terms_.resize(K_);
+  nonzero_q_terms_topic_.resize(K_);
   doc_topic_vec_.resize(K_);
   summary_row_.resize(K_);
-  nonzero_doc_topic_idx_.reset(new int32_t[K_]);
+  summary_row_delta_.resize(K_);
+  std::fill(summary_row_delta_.begin(), summary_row_delta_.end(), 0);
+  nonzero_doc_topic_idx_ = new int32_t[K_];
+}
+
+FastDocSampler::~FastDocSampler() {
+  delete[] nonzero_doc_topic_idx_;
+}
+
+void FastDocSampler::RefreshCachedSummaryRow() {
+  petuum::UpdateBatch<int32_t> summary_updates;
+  for (int i = 0; i < K_; ++i) {
+    if (summary_row_delta_[i] != 0) {
+      summary_updates.Update(i, summary_row_delta_[i]);
+    }
+  }
+  std::fill(summary_row_delta_.begin(), summary_row_delta_.end(), 0);
+  if (summary_updates.GetBatchSize() != 0) {
+    // Write to table only if there's actually deltas.
+    summary_table_.BatchInc(0, summary_updates);
+  }
+  // Read from summary row.
+  petuum::RowAccessor summary_row_acc;
+  summary_table_.Get(0, &summary_row_acc);
+  const auto& summary_row = summary_row_acc.Get<petuum::DenseRow<int32_t> >();
+  summary_row.CopyToVector(&summary_row_);
 }
 
 void FastDocSampler::SampleOneDoc(LDADocument* doc) {
   // Preparations before sampling a document.
-  LOG(INFO) << "SampleOneDoc cp1";
   ComputeDocTopicVector(doc);
-  LOG(INFO) << "SampleOneDoc cp2";
   ComputeAuxVariables();
-  LOG(INFO) << "SampleOneDoc cp3";
 
   // Start sampling.
   for (LDADocument::WordOccurrenceIterator it(doc);
@@ -84,9 +82,10 @@ void FastDocSampler::SampleOneDoc(LDADocument* doc) {
 
     // Remove this token from corpus. It requires following updates:
     //
-    // 1. Update terms in r and q bucket (ignore s bucket, as n_{.|t} is large
-    // so change by 1 doesn't do much).
-    float denom = summary_row_[old_topic] + beta_sum_;
+    // 1. Update terms in s, r and q bucket.
+    real_t denom = summary_row_[old_topic] + beta_sum_;
+    s_sum_ -= (alpha_ * beta_) / denom;
+    s_sum_ += (alpha_ * beta_) / (denom - 1);
     r_sum_ -= (doc_topic_vec_[old_topic] * beta_) / denom;
     r_sum_ += ((doc_topic_vec_[old_topic] - 1) * beta_) / (denom - 1);
     q_coeff_[old_topic] =
@@ -97,10 +96,10 @@ void FastDocSampler::SampleOneDoc(LDADocument* doc) {
     --doc_topic_vec_[old_topic];
     if (doc_topic_vec_[old_topic] == 0) {
       int32_t* zero_idx =
-        std::lower_bound(nonzero_doc_topic_idx_.get(),
-            nonzero_doc_topic_idx_.get() + num_nonzero_doc_topic_idx_,
+        std::lower_bound(nonzero_doc_topic_idx_,
+            nonzero_doc_topic_idx_ + num_nonzero_doc_topic_idx_,
             old_topic);
-      memmove(zero_idx, zero_idx + 1, (nonzero_doc_topic_idx_.get() +
+      memmove(zero_idx, zero_idx + 1, (nonzero_doc_topic_idx_ +
             num_nonzero_doc_topic_idx_ - zero_idx - 1) * sizeof(int32_t));
       --num_nonzero_doc_topic_idx_;
     }
@@ -122,6 +121,7 @@ void FastDocSampler::SampleOneDoc(LDADocument* doc) {
           word_topic_row.cbegin(); !wt_it.is_end(); ++wt_it) {
         int32_t topic = wt_it->first;
         int32_t count = wt_it->second;
+        //LOG(INFO) << "topic = " << topic << " K = " << K_;
         nonzero_q_terms_[num_nonzero_q_terms_] = (topic == old_topic) ?
           (q_coeff_[topic] * (count - 1)) : (q_coeff_[topic] * count);
         nonzero_q_terms_topic_[num_nonzero_q_terms_] = topic;
@@ -136,9 +136,10 @@ void FastDocSampler::SampleOneDoc(LDADocument* doc) {
 
     // Add this token with new topic back to corpus using following steps:
     //
-    // 1. Update r and q bucket (ignore s bucket, as n_{.|t} is large so change
-    // by 1 doesn't do much).
+    // 1. Update s, r and q bucket.
     denom = summary_row_[new_topic] + beta_sum_;
+    s_sum_ -= (alpha_ * beta_) / denom;
+    s_sum_ += (alpha_ * beta_) / (denom + 1);
     r_sum_ -= (doc_topic_vec_[new_topic] * beta_) / denom;
     r_sum_ += ((doc_topic_vec_[new_topic] + 1) * beta_) / (denom + 1);
     q_coeff_[new_topic] =
@@ -149,11 +150,12 @@ void FastDocSampler::SampleOneDoc(LDADocument* doc) {
     ++doc_topic_vec_[new_topic];
     if (doc_topic_vec_[new_topic] == 1) {
       int32_t* insert_idx =
-        std::lower_bound(nonzero_doc_topic_idx_.get(),
-            nonzero_doc_topic_idx_.get() + num_nonzero_doc_topic_idx_,
+        std::lower_bound(nonzero_doc_topic_idx_,
+            nonzero_doc_topic_idx_ + num_nonzero_doc_topic_idx_,
             new_topic);
-      memmove(insert_idx + 1, insert_idx, (nonzero_doc_topic_idx_.get() +
+      memmove(insert_idx + 1, insert_idx, (nonzero_doc_topic_idx_ +
             num_nonzero_doc_topic_idx_ - insert_idx) * sizeof(int32_t));
+      *insert_idx = new_topic;
       ++num_nonzero_doc_topic_idx_;
     }
 
@@ -164,12 +166,14 @@ void FastDocSampler::SampleOneDoc(LDADocument* doc) {
     // table and summary row.
     if (old_topic != new_topic) {
       it.SetTopic(new_topic);
-      word_topic_table_.Inc(it.Word(), old_topic, -1);
-      word_topic_table_.Inc(it.Word(), new_topic, 1);
 
-      // TODO(wdai): Use UpdateBatch for summary_table.
-      summary_table_.Inc(it.Word(), old_topic, -1);
-      summary_table_.Inc(it.Word(), new_topic, 1);
+      petuum::UpdateBatch<int32_t> word_topic_updates;
+      word_topic_updates.Update(old_topic, -1);
+      word_topic_updates.Update(new_topic, 1);
+      word_topic_table_.BatchInc(it.Word(), word_topic_updates);
+
+      --summary_row_[old_topic];
+      ++summary_row_[new_topic];
     }
   }
 }
@@ -187,20 +191,13 @@ void FastDocSampler::ComputeDocTopicVector(LDADocument* doc) {
 }
 
 void FastDocSampler::ComputeAuxVariables() {
-  // Read summary row.
-  petuum::RowAccessor summary_row_acc;
-  summary_table_.Get(0, &summary_row_acc);
-  const petuum::DenseRow<int32_t>& summary_row =
-    summary_row_acc.Get<petuum::DenseRow<int32_t> >();
-
   // zero out.
   s_sum_ = 0.;
   r_sum_ = 0.;
   num_nonzero_doc_topic_idx_ = 0;
-  float alpha_beta = alpha_ * beta_;
+  real_t alpha_beta = alpha_ * beta_;
   for (int k = 0; k < K_; ++k) {
-    summary_row_[k] = summary_row[k];
-    float denom = summary_row[k] + beta_sum_;
+    real_t denom = summary_row_[k] + beta_sum_;
     q_coeff_[k] = (alpha_ + doc_topic_vec_[k]) / denom;
     s_sum_ = alpha_beta / denom;
 
@@ -215,8 +212,8 @@ void FastDocSampler::ComputeAuxVariables() {
 
 int32_t FastDocSampler::Sample() {
   // Shooting a dart on [q_sum_ | r_sum_ | s_sum_] interval.
-  float total_mass = q_sum_ + r_sum_ + s_sum_;
-  float sample = (*zero_one_rng_)() * total_mass;
+  real_t total_mass = q_sum_ + r_sum_ + s_sum_;
+  real_t sample = (*zero_one_rng_)() * total_mass;
 
   if (sample < q_sum_) {
     // The dart falls in [q_sum_ interval], which consists of [large_q_term |
@@ -228,7 +225,7 @@ int32_t FastDocSampler::Sample() {
       }
     }
     // Overflow.
-    LOG(INFO) << "sample = " << sample << " has overflowed.";
+    //LOG(INFO) << "sample = " << sample << " has overflowed.";
     return nonzero_q_terms_topic_[num_nonzero_q_terms_ - 1];
   } else {
     sample -= q_sum_;
@@ -243,7 +240,7 @@ int32_t FastDocSampler::Sample() {
           return nonzero_topic;
         }
       }
-      LOG(INFO) << "sample = " << sample << " has overflowed.";
+      //LOG(INFO) << "sample = " << sample << " has overflowed.";
       return nonzero_doc_topic_idx_[num_nonzero_doc_topic_idx_ - 1];
     } else {
       // s bucket.
@@ -257,7 +254,7 @@ int32_t FastDocSampler::Sample() {
           return k;
         }
       }
-      LOG(INFO) << "sample = " << sample << " has overflowed.";
+      //LOG(INFO) << "sample = " << sample << " has overflowed.";
       return (K_ - 1);
     }
   }

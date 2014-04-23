@@ -1,31 +1,3 @@
-// Copyright (c) 2014, Sailing Lab
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the <ORGANIZATION> nor the names of its contributors
-// may be used to endorse or promote products derived from this software
-// without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
 // author: jinliang
 
 #include <boost/noncopyable.hpp>
@@ -51,7 +23,7 @@ public:
 
   bool Restart() {
     offset_ = 0;
-    num_tables_left_ = 
+    num_tables_left_ =
       *(reinterpret_cast<const int32_t*>(serialized_oplog_ptr_ + offset_));
     offset_ += sizeof(int32_t);
     VLOG(0) << "SerializedOpLogReader Restart(), num_tables_left = "
@@ -62,10 +34,10 @@ public:
     return true;
   }
 
-  const void *Next(int32_t *table_id, int32_t *row_id, 
-    int32_t const ** column_ids, int32_t *num_updates, 
+  const void *Next(int32_t *table_id, int32_t *row_id,
+    int32_t const ** column_ids, int32_t *num_updates,
     bool *started_new_table) {
-    
+
     // I have read all.
     if (num_tables_left_ == 0) return 0;
     *started_new_table = false;
@@ -84,8 +56,8 @@ public:
 
         const void *updates = serialized_oplog_ptr_ + offset_
           + sizeof(int32_t)*(*num_updates);
-	VLOG(0) << "update = "
-		<< *(reinterpret_cast<const int*>(updates));
+	//VLOG(0) << "update = "
+	//	<< *(reinterpret_cast<const int*>(updates));
         --num_rows_left_in_current_table_;
 	offset_ += (*num_updates)*(sizeof(int32_t) + update_size_);
 	return updates;
@@ -115,7 +87,7 @@ private:
     num_rows_left_in_current_table_ =
       *(reinterpret_cast<const int32_t*>(serialized_oplog_ptr_ + offset_));
     offset_ += sizeof(int32_t);
-    
+
     VLOG(0) << "current_table_id = " << current_table_id_
 	    << " update_size = " << update_size_
 	    << " rows_left_in_current_table_ = "
@@ -128,7 +100,7 @@ private:
   int32_t num_tables_left_; // number of tables that I have not finished
                             //reading (might have started)
   int32_t current_table_id_;
-  int32_t num_rows_left_in_current_table_; 
+  int32_t num_rows_left_in_current_table_;
 };
 
 
@@ -146,7 +118,7 @@ public:
       int32_t table_id = iter->first;
       size_t table_size = iter->second;
       offset_map_[table_id] = total_size;
-      // next table is offset by 
+      // next table is offset by
       // 1) the current table size and
       // 2) space for table id
       // 3) update size

@@ -1,31 +1,3 @@
-// Copyright (c) 2014, Sailing Lab
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the <ORGANIZATION> nor the names of its contributors
-// may be used to endorse or promote products derived from this software
-// without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
 // server_thread.cpp
 // author: jinliang
 
@@ -176,16 +148,13 @@ bool NameNodeThread::HaveCreatedAllTables(){
 }
 
 void NameNodeThread::SendCreatedAllTablesMsg() {
-  const std::map<int32_t, bool> &head_bgs = name_node_context_->head_bgs_;
-
   CreatedAllTablesMsg created_all_tables_msg;
-  int32_t num_clients = head_bgs.size();
-  CHECK_EQ(num_clients, GlobalContext::get_num_clients());
+  int32_t num_clients = GlobalContext::get_num_clients();
 
-  for(auto iter = head_bgs.cbegin(); iter != head_bgs.cend(); iter++){
-    size_t sent_size = (comm_bus_->*CommBusSendAny)(iter->first,
+  for (int client_idx = 0; client_idx < num_clients; ++client_idx) {
+    int32_t head_bg_id = GlobalContext::get_head_bg_id(client_idx);
+    size_t sent_size = (comm_bus_->*CommBusSendAny)(head_bg_id,
       created_all_tables_msg.get_mem(), created_all_tables_msg.get_size());
-
     CHECK_EQ(sent_size, created_all_tables_msg.get_size());
   }
 }
@@ -216,7 +185,6 @@ void NameNodeThread::HandleCreateTable(int32_t sender_id,
   // if name node, send to all other servers; otherwise, just reply
   std::map<int32_t, CreateTableInfo> &create_table_map =
     name_node_context_->create_table_map_;
-  std::map<int32_t, bool> &head_bgs = name_node_context_->head_bgs_;
   if (create_table_map.count(table_id) == 0) {
     TableInfo table_info;
     table_info.table_staleness = create_table_msg.get_staleness();
@@ -227,7 +195,6 @@ void NameNodeThread::HandleCreateTable(int32_t sender_id,
     create_table_map[table_id]; // access it to call default constructor
     SendToAllServers(create_table_msg.get_mem(), create_table_msg.get_size());
   }
-  head_bgs[sender_id] = true;
   if (create_table_map[table_id].ReceivedFromAllServers()) {
     CreateTableReplyMsg create_table_reply_msg;
     create_table_reply_msg.get_table_id() = create_table_msg.get_table_id();

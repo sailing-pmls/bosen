@@ -1,37 +1,8 @@
-// Copyright (c) 2014, Sailing Lab
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the <ORGANIZATION> nor the names of its contributors
-// may be used to endorse or promote products derived from this software
-// without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
 // author: jinliang
 
 #include "petuum_ps/include/abstract_row.hpp"
-#include "petuum_ps/client/row_metadata.hpp"
 
 #include <cstdint>
 #include <atomic>
@@ -54,16 +25,18 @@ namespace petuum {
 class ClientRow : boost::noncopyable {
 public:
   // ClientRow takes ownership of row_data.
-  ClientRow(const RowMetadata &metadata, AbstractRow* row_data);
-
-  void SetMetadata(const RowMetadata& metadata) {
-    std::unique_lock<std::mutex> ulock(metadata_mtx_);
-    metadata_ = metadata;
+  ClientRow(int32_t clock __attribute__((unused)), AbstractRow* row_data):
+      num_refs_(0),
+      row_data_pptr_(new std::shared_ptr<AbstractRow>) {
+    (*row_data_pptr_).reset(row_data);
   }
 
-  RowMetadata GetMetadata() const {
-    std::unique_lock<std::mutex> ulock(metadata_mtx_);
-    return metadata_;
+  virtual ~ClientRow() {};
+
+  virtual void SetClock(int32_t clock __attribute__((unused))) { }
+
+  virtual int32_t GetClock() const {
+    return -1;
   }
 
   // Take row_data_pptr_ from other and destroy other. Existing ROW will not
@@ -71,14 +44,8 @@ public:
   // referencing the ROW are destroyed. Accesses to SwapAndDestroy() and
   // GetRowDataPtr() must be mutually exclusive as they the former modifies
   // row_data_pptr_.
-  inline void SwapAndDestroy(ClientRow* other) {
-    CHECK(other->HasZeroRef())
-      << "The other ClientRow should not have ref count.";
-    VLOG(0) << "SwapAndDestroy(), other.clock = "
-	    << other->metadata_.GetClock();
-    metadata_ = other->metadata_;
-    row_data_pptr_.swap(other->row_data_pptr_);  // same as reset()
-    VLOG(0) << "SwapAndDestroy(), clock = " << metadata_.GetClock();
+  virtual void SwapAndDestroy(ClientRow* other) {
+    row_data_pptr_.swap(other->row_data_pptr_);
     delete other;
   }
 
@@ -99,10 +66,6 @@ public:
 
 private:  // private members
   std::atomic<int32_t> num_refs_;
-
-  mutable std::mutex metadata_mtx_;
-
-  RowMetadata metadata_;
 
   // Row data stored in user-defined data structure ROW. We assume ROW to be
   // thread-safe. (pptr stands for pointer to pointer).

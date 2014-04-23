@@ -31,8 +31,8 @@ LDADocument::WordOccurrenceIterator::~WordOccurrenceIterator() { }
 
 // Have we advanced beyond the last word?
 bool LDADocument::WordOccurrenceIterator::Done() {
-  CHECK_GE(parent_->topic_assignments_->words_size(), word_index_);
-  return word_index_ == parent_->topic_assignments_->words_size();
+  CHECK_GE(parent_->topic_assignments_.words_size(), word_index_);
+  return word_index_ == parent_->topic_assignments_.words_size();
 }
 
 // We iterate over all the occurrences of each word.  If we have finished with
@@ -42,7 +42,7 @@ void LDADocument::WordOccurrenceIterator::Next() {
   CHECK(!Done());
   ++word_topic_index_;
   if (word_topic_index_ >
-      parent_->topic_assignments_->word_last_topic_index(word_index_)) {
+      parent_->topic_assignments_.word_last_topic_index(word_index_)) {
     ++word_index_;
     SkipWordsWithoutOccurrences();
   }
@@ -50,7 +50,7 @@ void LDADocument::WordOccurrenceIterator::Next() {
 
 int32_t LDADocument::WordOccurrenceIterator::Topic() {
   CHECK(!Done());
-  return parent_->topic_assignments_->wordtopics(word_topic_index_);
+  return parent_->topic_assignments_.wordtopics(word_topic_index_);
 }
 
 // Exchange the topic.  Be sure to keep the topic count distribution up to
@@ -63,13 +63,13 @@ void LDADocument::WordOccurrenceIterator::SetTopic(int32_t new_topic) {
   // one.
   //parent_->topic_distribution_[Topic()] -= 1;
   //parent_->topic_distribution_[new_topic] += 1;
-  *(parent_->topic_assignments_->mutable_wordtopics(word_topic_index_)) =
+  *(parent_->topic_assignments_.mutable_wordtopics(word_topic_index_)) =
     new_topic;
 }
 
 int32_t LDADocument::WordOccurrenceIterator::Word() {
   CHECK(!Done());
-  return parent_->topic_assignments_->word(word_index_);
+  return parent_->topic_assignments_.word(word_index_);
 }
 
 void LDADocument::WordOccurrenceIterator::SkipWordsWithoutOccurrences() {
@@ -77,14 +77,15 @@ void LDADocument::WordOccurrenceIterator::SkipWordsWithoutOccurrences() {
   // occurrences" (and thus no topic assignments).
   while (
       !Done() &&
-      parent_->topic_assignments_->wordtopics_count(word_index_) == 0) {
+      parent_->topic_assignments_.wordtopics_count(word_index_) == 0) {
     ++word_index_;
   }
 }
 
 void LDADocument::WordOccurrenceIterator::GotoWord(int32_t new_word_index) {
     word_index_ = new_word_index;
-    word_topic_index_ = parent_->topic_assignments_->wordtopics_start_index_[word_index_];
+    word_topic_index_ =
+      parent_->topic_assignments_.wordtopics_start_index_[word_index_];
 }
 
 /*
@@ -100,9 +101,9 @@ void LDADocument::CountTopicDistribution() {
 
 std::string LDADocument::DebugString() {
   std::string s;
-  for (int i = 0; i < topic_assignments_->wordtopics_.size(); ++i) {
+  for (int i = 0; i < topic_assignments_.wordtopics_.size(); ++i) {
     char buf[100];
-    snprintf(buf, sizeof(buf), "%d", topic_assignments_->wordtopics_[i]);
+    snprintf(buf, sizeof(buf), "%d", topic_assignments_.wordtopics_[i]);
     s.append(buf);
     s.append(" ");
   }
@@ -118,17 +119,10 @@ std::string LDADocument::DebugString() {
   return s;
 }
 
-LDADocument::LDADocument(const DocumentWordTopicsPB& topics) {
-  topic_assignments_ = new DocumentWordTopicsPB;
-  topic_assignments_->CopyFrom(topics);
-
+LDADocument::LDADocument(const DocumentWordTopicsPB& topics) :
+  topic_assignments_(topics) {
   //topic_distribution_.resize(num_topics);
   //CountTopicDistribution();
-}
-
-LDADocument::~LDADocument() {
-  delete topic_assignments_;
-  topic_assignments_ = NULL;
 }
 
 /*

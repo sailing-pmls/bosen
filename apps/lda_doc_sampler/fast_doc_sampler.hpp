@@ -1,31 +1,3 @@
-// Copyright (c) 2014, Sailing Lab
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the <ORGANIZATION> nor the names of its contributors
-// may be used to endorse or promote products derived from this software
-// without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
 // Author: Dai Wei (wdai@cs.cmu.edu)
 // Date: 2014.03.28
 
@@ -43,6 +15,8 @@
 
 namespace lda {
 
+typedef double real_t;
+
 // FastDocSampler samples one document at a time using Yao's fast sampler
 // (http://people.cs.umass.edu/~lmyao/papers/fast-topic-model10.pdf section
 // 3.4. We try to keep the variable names consistent with the paper.)
@@ -50,7 +24,15 @@ namespace lda {
 class FastDocSampler {
 public:
   FastDocSampler();
+  ~FastDocSampler();
 
+  // Read off summary_table and cache it to summary_row_ to simulate thread
+  // cache (avoiding contention). Write the delta accuulated in
+  // summary_row_delta_ to summary_table_ and zero out summary_row_delta_.
+  void RefreshCachedSummaryRow();
+
+  // RefreshCachedSummaryRow must be called at least once before calling
+  // SampleOneDoc.
   void SampleOneDoc(LDADocument* doc);
 
 private:  // private functions
@@ -80,18 +62,17 @@ private:  // private members.
   int32_t V_;
 
   // Dirichlet prior for word-topic vectors.
-  float beta_;
+  real_t beta_;
 
   // Equals to V_*beta_
-  float beta_sum_;
+  real_t beta_sum_;
 
   // Dirichlet prior for doc-topic vectors.
-  float alpha_;
+  real_t alpha_;
 
   // ============== Global Parameters from Petuum Server =================
   // A table containing just one summary row of [K x 1] dimension. The k-th
   // entry in the table is the # of tokens assigned to topic k.
-  // FastDocSampler does not take ownership of it.
   petuum::Table<int32_t> summary_table_;
 
   // Word topic table of V_ rows, each of which is a [K x 1] dim sparse sorted
@@ -113,30 +94,30 @@ private:  // private members.
   // small (<10%) that it might be cheaper to compute the necessary terms on
   // the fly when this bucket is picked instead of maintaining the vector of
   // terms.
-  float s_sum_;
+  real_t s_sum_;
 
   // The mass of r bucket in the paper. This needs to be computed for each
   // document, and updated incrementally as each token in the doc is sampled.
   //
   // Comment(wdai): We don't maintain each terms in the sum for the same
   // reasons as s_sum_.
-  float r_sum_;
+  real_t r_sum_;
 
   // The mass of q bucket in the paper. This is computed for each word with
   // the help of q_coeff_.
-  float q_sum_;
+  real_t q_sum_;
 
   // The cached coefficients in the q bucket. The coefficients are the terms
   // without word-topic count. [K_ x 1] dimension. This is computed before
   // sampling of each document, and incrementally updated.
-  std::vector<float> q_coeff_;
+  std::vector<real_t> q_coeff_;
 
   // Nonzero terms in the summand of q bucket. [K_ x 1] dimension, but only
   // the first num_nonzero_q_terms_ enetries are active.
-  std::vector<float> nonzero_q_terms_;
+  std::vector<real_t> nonzero_q_terms_;
 
   // The corresponding topic index in nonzero_q_terms_. [K_ x 1] dimension.
-  std::vector<float> nonzero_q_terms_topic_;
+  std::vector<real_t> nonzero_q_terms_topic_;
 
   // q_terms_ is sparse as word-topic count is sparse (0 for most topics).
   int32_t num_nonzero_q_terms_;
@@ -155,24 +136,27 @@ private:  // private members.
   // also reduce the time we hold accessor (a lock) on the summary row.
   std::vector<int32_t> summary_row_;
 
+  // Keep track of deltas that are not written to summary_table_.
+  std::vector<int32_t> summary_row_delta_;
+
   // Sorted indices of nonzero topics in doc_topic_vec_ to exploit sparsity in
   // doc_topic_vec. Sorted so we can use std::lower_bound binary search. This
   // has size [K x 1], but only the first num_nonzero_idx_ entries are active.
   //
   // Comment(wdai): Use POD array to allow memmove, which is faster than using
   // std::vector with std::move.
-  std::unique_ptr<int32_t[]> nonzero_doc_topic_idx_;
+  int32_t* nonzero_doc_topic_idx_;
 
   // Number of non-zero entries in doc_topic_vec_.
   int32_t num_nonzero_doc_topic_idx_;
 
   // ================== Utilities ====================
   typedef boost::variate_generator<boost::mt19937&,
-          boost::uniform_real<float> > rng_t;
+          boost::uniform_real<real_t> > rng_t;
 
   boost::mt19937 rng_engine_;
 
-  boost::uniform_real<float> uniform_zero_one_dist_;
+  boost::uniform_real<real_t> uniform_zero_one_dist_;
 
   // zero_one_rng_ generates random real on [0, 1)
   std::unique_ptr<rng_t> zero_one_rng_;

@@ -6,11 +6,17 @@ include $(PETUUM_ROOT)/defns.mk
 
 TOOLS_SRC = $(wildcard $(TOOLS_DIR)/*.cpp)
 TOOLS_BIN = $(TOOLS_DIR)/bin
-TOOLS = $(TOOLS_BIN)/lda_data_processor
+TOOLS = $(TOOLS_BIN)/lda_word_sampler_processor \
+				$(TOOLS_BIN)/lda_doc_sampler_processor
 
 tools: $(TOOLS)
 
-$(TOOLS): $(TOOLS_SRC) $(PETUUM_PS_LIB)
+$(TOOLS_BIN)/lda_word_sampler_processor: lda_word_sampler_processor.cpp
+	mkdir -p $(TOOLS_BIN)
+	$(PETUUM_CXX) $(PETUUM_CXXFLAGS) $(PETUUM_INCFLAGS) $^ \
+	$(PETUUM_LDFLAGS) -o $@
+
+$(TOOLS_BIN)/lda_doc_sampler_processor: lda_doc_sampler_processor.cpp
 	mkdir -p $(TOOLS_BIN)
 	$(PETUUM_CXX) $(PETUUM_CXXFLAGS) $(PETUUM_INCFLAGS) $^ \
 	$(PETUUM_LDFLAGS) -o $@

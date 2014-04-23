@@ -1,31 +1,3 @@
-// Copyright (c) 2014, Sailing Lab
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the <ORGANIZATION> nor the names of its contributors
-// may be used to endorse or promote products derived from this software
-// without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
 // Author: jinliang
 
 #pragma once
@@ -38,87 +10,15 @@
 #include "petuum_ps/util/striped_lock.hpp"
 #include "petuum_ps/thread/context.hpp"
 #include "petuum_ps/include/abstract_row.hpp"
+#include "petuum_ps/oplog/row_oplog.hpp"
 
 namespace petuum {
-
-class RowOpLog : boost::noncopyable {
-public:
-  RowOpLog(uint32_t update_size, const AbstractRow *sample_row):
-    update_size_(update_size),
-    sample_row_(sample_row) { }
-
-  ~RowOpLog() {
-    boost::unordered_map<int32_t, void*>::iterator iter = oplogs_.begin();
-    for (; iter != oplogs_.end(); iter++) {
-      delete reinterpret_cast<uint8_t*>(iter->second);
-    }
-  }
-
-  void* Find(int32_t col_id) {
-    boost::unordered_map<int32_t, void*>::iterator iter
-      = oplogs_.find(col_id);
-    if (iter == oplogs_.end()) {
-      return 0;
-    }
-    return iter->second;
-  }
-
-  void* FindCreate(int32_t col_id) {
-    boost::unordered_map<int32_t, void*>::iterator iter
-      = oplogs_.find(col_id);
-    if (iter == oplogs_.end()) {
-      void* update = reinterpret_cast<void*>(new uint8_t[update_size_]);
-      sample_row_->InitUpdate(col_id, update);
-      oplogs_[col_id] = update;
-      return update;
-    }
-    return iter->second;
-  }
-
-  void* BeginIterate(int32_t *column_id) {
-    iter_ = oplogs_.begin();
-    if (iter_ == oplogs_.end()) {
-      return 0;
-    }
-    *column_id = iter_->first;
-    return iter_->second;
-  }
-
-  void* Next(int32_t *column_id) {
-    iter_++;
-    if (iter_ == oplogs_.end()) {
-      return 0;
-    }
-    *column_id = iter_->first;
-    return iter_->second;
-  }
-
-  int32_t GetSize(){
-    return oplogs_.size();
-  }
-
-private:
-  uint32_t update_size_;
-  boost::unordered_map<int32_t, void*> oplogs_;
-  const AbstractRow *sample_row_;
-  boost::unordered_map<int32_t, void*>::iterator iter_;
-};
-
 class OpLogAccessor {
 public:
   OpLogAccessor():
-    smtx_(0),
     row_oplog_(0) { }
 
-  ~OpLogAccessor() {
-    if (smtx_ != 0) {
-      smtx_->unlock();
-    }
-  }
-
-  void SetPartitionLock(SharedMutex *smtx) {
-    smtx_ = smtx;
-  }
+  ~OpLogAccessor() { }
 
   Unlocker<std::mutex> *get_unlock_ptr() {
     return &unlocker_;
@@ -146,17 +46,16 @@ public:
 
 private:
   Unlocker<std::mutex> unlocker_;
-  SharedMutex *smtx_;
   RowOpLog *row_oplog_;
 };
 
 class OpLogPartition : boost::noncopyable {
 public:
   OpLogPartition();
-  explicit OpLogPartition(int32_t capacity, const AbstractRow *sample_row, 
-    int32_t table_id);
+  OpLogPartition(int32_t capacity, const AbstractRow *sample_row,
+                 int32_t table_id);
   ~OpLogPartition();
-  
+
   // exclusive access
   void Inc(int32_t row_id, int32_t column_id, const void *delta);
   void BatchInc(int32_t row_id, const int32_t *column_ids,
@@ -171,12 +70,10 @@ public:
   RowOpLog *FindOpLog(int32_t row_id);
   RowOpLog *FindInsertOpLog(int32_t row_id);
 
-  // Return the *exact* number of bytes per server
-  // Overwrites the mapped value for each server.
-  void GetSerializedSizeByServer(
-    std::map<int32_t, size_t> *num_bytes_by_server);
-
-  void SerializeByServer(std::map<int32_t, void* > *bytes_by_server);
+  typedef bool (*GetOpLogTestFunc)(RowOpLog *, void *arg);
+  bool GetEraseOpLog(int32_t row_id, RowOpLog **row_oplog_ptr);
+  bool GetEraseOpLogIf(int32_t row_id, GetOpLogTestFunc test,
+                            void *test_args, RowOpLog **row_oplog_ptr);
 
 private:
   size_t update_size_;

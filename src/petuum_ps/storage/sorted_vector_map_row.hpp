@@ -1,31 +1,3 @@
-// Copyright (c) 2014, Sailing Lab
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the <ORGANIZATION> nor the names of its contributors
-// may be used to endorse or promote products derived from this software
-// without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
 // Author: Dai Wei (wdai@cs.cmu.edu)
 // Date: 2014.03.23
 
@@ -33,6 +5,7 @@
 
 #include "petuum_ps/include/abstract_row.hpp"
 #include "petuum_ps/util/lock.hpp"
+#include "petuum_ps/util/stats.hpp"
 #include <boost/thread.hpp>
 #include <cstdint>
 #include <vector>
@@ -76,6 +49,8 @@ private:  // private functions
 public:  // AbstractRow implementation.
   // Reserve memory in entries_ to be able to store 'capacity' entries.
   void Init(int32_t capacity);
+
+  AbstractRow *Clone() const;
 
   size_t get_update_size() const;
 
@@ -273,7 +248,7 @@ void SortedVectorMapRow<V>::SetAndAllocateCapacity(int32_t new_capacity,
   if (block_aligned && remainder != 0) {
     new_capacity += K_BLOCK_SIZE_ - remainder;
   }
-  VLOG(0) << "Expanding capacity to " << new_capacity;
+  //VLOG(0) << "Expanding capacity to " << new_capacity;
   capacity_ = new_capacity;
   Entry<V>* new_entries = new Entry<V>[capacity_];
   memcpy(new_entries, entries_.get(), num_entries_ * sizeof(Entry<V>));
@@ -296,8 +271,21 @@ void SortedVectorMapRow<V>::RemoveOneEntryAndCompact(int32_t vector_idx) {
 
 template<typename V>
 void SortedVectorMapRow<V>::Init(int32_t capacity) {
-  entries_.reset(new Entry<V>[capacity_]);
   capacity_ = capacity;
+  entries_.reset(new Entry<V>[capacity_]);
+}
+
+
+template<typename V>
+AbstractRow *SortedVectorMapRow<V>::Clone() const {
+  std::unique_lock<SharedMutex> read_lock(rw_mutex_);
+  SortedVectorMapRow<V> *new_row = new SortedVectorMapRow<V>();
+  new_row->Init(capacity_);
+  new_row->capacity_ = capacity_;
+  memcpy(new_row->entries_.get(), entries_.get(), num_entries_*sizeof(Entry<V>));
+  new_row->num_entries_ = num_entries_;
+
+  return static_cast<AbstractRow*>(new_row);
 }
 
 template<typename V>
@@ -382,6 +370,8 @@ template<typename V>
 void SortedVectorMapRow<V>::ApplyBatchIncUnsafe(const int32_t *column_ids,
     const void* updates, int32_t num_updates) {
 
+  TIMER_BEGIN(0, SORTED_VECTOR_MAP_BATCH_INC_UNSAFE);
+
   const V* typed_updates = reinterpret_cast<const V*>(updates);
 
   // Use ApplyInc individually on each column_id.
@@ -408,6 +398,8 @@ void SortedVectorMapRow<V>::ApplyBatchIncUnsafe(const int32_t *column_ids,
   std::sort(entries_.get(), entries_.get() + num_entries_,
       [](const std::pair<int32_t, V>& i, const std::pair<int32_t, V>&j) {
       return i.second > j.second; });
+
+  TIMER_END(0, SORTED_VECTOR_MAP_BATCH_INC_UNSAFE);
 }
 
 template<typename V>

@@ -121,11 +121,15 @@ class LDADocument {
   // all words appear in the training data.
   LDADocument(const DocumentWordTopicsPB& topics);
 
-  virtual ~LDADocument();
+  LDADocument() { }
 
   // Returns the document's topic associations.
   const DocumentWordTopicsPB& topics() const {
-    return *topic_assignments_;
+    return topic_assignments_;
+  }
+
+  int num_tokens() const {
+    return topic_assignments_.wordtopics_.size();
   }
 
   // Returns the document's topic occurrence counts.
@@ -137,7 +141,7 @@ class LDADocument {
 
   std::string DebugString();
  protected:
-  DocumentWordTopicsPB*  topic_assignments_;
+  DocumentWordTopicsPB topic_assignments_;
   //vector<int64> topic_distribution_;
 
   // Count topic occurrences in topic_assignments_ and stores the

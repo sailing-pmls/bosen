@@ -1,31 +1,3 @@
-// Copyright (c) 2014, Sailing Lab
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the <ORGANIZATION> nor the names of its contributors
-// may be used to endorse or promote products derived from this software
-// without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
 // server_thread.cpp
 // author: jinliang
 
@@ -33,6 +5,7 @@
 #include "petuum_ps/thread/context.hpp"
 #include "petuum_ps/thread/ps_msgs.hpp"
 #include "petuum_ps/thread/mem_transfer.hpp"
+#include "petuum_ps/util/stats.hpp"
 
 namespace petuum {
 
@@ -44,7 +17,11 @@ boost::thread_specific_ptr<ServerThreads::ServerContext>
 CommBus::RecvFunc ServerThreads::CommBusRecvAny;
 CommBus::RecvTimeOutFunc ServerThreads::CommBusRecvTimeOutAny;
 CommBus::SendFunc ServerThreads::CommBusSendAny;
+CommBus::RecvAsyncFunc ServerThreads::CommBusRecvAsyncAny;
 CommBus *ServerThreads::comm_bus_;
+ServerThreads::ServerPushRowFunc ServerThreads::ServerPushRow;
+CommBus::RecvWrapperFunc ServerThreads::CommBusRecvAnyWrapper;
+ServerThreads::RowSubscribeFunc ServerThreads::RowSubscribe;
 
 void ServerThreads::Init(int32_t id_st){
 
@@ -56,8 +33,10 @@ void ServerThreads::Init(int32_t id_st){
 
   if (GlobalContext::get_num_clients() == 1) {
     CommBusRecvAny = &CommBus::RecvInProc;
+    CommBusRecvAsyncAny = &CommBus::RecvInProcAsync;
   } else{
     CommBusRecvAny = &CommBus::Recv;
+    CommBusRecvAsyncAny = &CommBus::RecvAsync;
   }
 
   if (GlobalContext::get_num_clients() == 1) {
@@ -72,8 +51,30 @@ void ServerThreads::Init(int32_t id_st){
     CommBusSendAny = &CommBus::Send;
   }
 
+  //ServerThreadMainFunc ServerThreadMain;
+  ConsistencyModel consistency_model = GlobalContext::get_consistency_model();
+  switch(consistency_model) {
+    case SSP:
+      ServerPushRow = SSPServerPushRow;
+      RowSubscribe = SSPRowSubscribe;
+      break;
+    case SSPPush:
+      ServerPushRow = SSPPushServerPushRow;
+      RowSubscribe = SSPPushRowSubscribe;
+      break;
+    default:
+      LOG(FATAL) << "Unrecognized consistency model " << consistency_model;
+  }
+
+  if (GlobalContext::get_aggressive_cpu()) {
+    CommBusRecvAnyWrapper = CommBusRecvAnyBusy;
+  } else {
+    CommBusRecvAnyWrapper = CommBusRecvAnySleep;
+  }
+
   int i;
-  for(i = 0; i < GlobalContext::get_num_local_server_threads(); ++i){
+  for (i = 0; i < GlobalContext::get_num_local_server_threads(); ++i) {
+    VLOG(0) << "Create server thread " << i;
     thread_ids_[i] = id_st + i;
     int ret = pthread_create(&threads_[i], NULL, ServerThreadMain,
       &thread_ids_[i]);
@@ -229,10 +230,10 @@ void ServerThreads::HandleRowRequest(int32_t sender_id,
   int32_t row_id = row_request_msg.get_row_id();
   int32_t clock = row_request_msg.get_clock();
   int32_t server_clock = server_context_->server_obj_.GetMinClock();
-  if(server_clock < clock){
-    VLOG(0) << "server clock = " << server_clock
-	    << " request clock = " << clock
-	    << " not fresh enough, should wait";
+  if (server_clock < clock) {
+    //VLOG(0) << "server clock = " << server_clock
+    //	    << " request clock = " << clock
+    //	    << " not fresh enough, should wait";
     server_context_->server_obj_.AddRowRequest(sender_id, table_id, row_id,
       clock);
     return;
@@ -241,7 +242,9 @@ void ServerThreads::HandleRowRequest(int32_t sender_id,
   uint32_t version = server_context_->server_obj_.GetBgVersion(sender_id);
   ServerRow *server_row = server_context_->server_obj_.FindCreateRow(table_id,
     row_id);
-  VLOG(0) << "fresh enough, reply now";
+  RowSubscribe(server_row, GlobalContext::thread_id_to_client_id(sender_id));
+
+  //VLOG(0) << "fresh enough, reply now";
   ReplyRowRequest(sender_id, server_row, table_id, row_id, server_clock,
    version);
 }
@@ -256,8 +259,8 @@ void ServerThreads::ReplyRowRequest(int32_t bg_id, ServerRow *server_row,
   server_row_request_reply_msg.get_row_id() = row_id;
   server_row_request_reply_msg.get_clock() = server_clock;
   server_row_request_reply_msg.get_version() = version;
-  VLOG(0) << "Replying client row request, version = " << version
-          << " table_id = " << table_id;
+  //VLOG(0) << "Replying client row request, version = " << version
+  //       << " table_id = " << table_id;
 
   row_size = server_row->Serialize(server_row_request_reply_msg.get_row_data());
 
@@ -293,18 +296,67 @@ void ServerThreads::HandleOpLogMsg(int32_t sender_id,
 	int32_t version = server_context_->server_obj_.GetBgVersion(bg_id);
 	ServerRow *server_row
 	  = server_context_->server_obj_.FindCreateRow(table_id, row_id);
+        RowSubscribe(server_row,
+                     GlobalContext::thread_id_to_client_id(bg_id));
 	int32_t server_clock = server_context_->server_obj_.GetMinClock();
 	ReplyRowRequest(bg_id, server_row, table_id, row_id, server_clock,
 	  version);
       }
+      ServerPushRow();
     }
   }
+}
+
+void ServerThreads::CommBusRecvAnyBusy(int32_t *sender_id,
+                                       zmq::message_t *zmq_msg) {
+  bool received = (comm_bus_->*CommBusRecvAsyncAny)(sender_id, zmq_msg);
+  while (!received) {
+    received = (comm_bus_->*CommBusRecvAsyncAny)(sender_id, zmq_msg);
+  }
+}
+
+void ServerThreads::CommBusRecvAnySleep(int32_t *sender_id,
+                                        zmq::message_t *zmq_msg) {
+  (comm_bus_->*CommBusRecvAny)(sender_id, zmq_msg);
+}
+
+void ServerThreads::SSPPushServerPushRow() {
+  VLOG(0) << "SSPPushServerPushRow()";
+  server_context_->server_obj_.CreateSendServerPushRowMsgs(
+      SendServerPushRowMsg);
+}
+
+void ServerThreads::SendServerPushRowMsg(int32_t bg_id,
+  ServerPushRowMsg *msg, bool last_msg) {
+  //VLOG(0) << "msg = " << msg;
+  //VLOG(0) << " msg->get_size() = " << msg->get_size()
+  //      << " last_msg = " << last_msg;
+
+  msg->get_version() = server_context_->server_obj_.GetBgVersion(bg_id);
+  //VLOG(0) << "msg->get_version() set";
+  if (last_msg) {
+    msg->get_is_clock() = true;
+    msg->get_clock() = server_context_->server_obj_.GetMinClock();
+    MemTransfer::TransferMem(comm_bus_, bg_id, msg);
+  } else {
+    msg->get_is_clock() = false;
+    size_t sent_size = (comm_bus_->*CommBusSendAny)(bg_id, msg->get_mem(),
+                                                    msg->get_size());
+    CHECK_EQ(sent_size, msg->get_size());
+  }
+}
+
+void ServerThreads::SSPPushRowSubscribe(ServerRow *server_row,
+                                        int32_t client_id) {
+  //VLOG(0) << "ServerThreads client " << client_id << " subscibe to callback";
+  server_row->Subscribe(client_id);
 }
 
 void *ServerThreads::ServerThreadMain(void *thread_id){
   int32_t my_id = *(reinterpret_cast<int32_t*>(thread_id));
 
   ThreadContext::RegisterThread(my_id);
+  REGISTER_THREAD_FOR_STATS(false);
 
   // set up thread-specific server context
   SetUpServerContext();
@@ -320,10 +372,10 @@ void *ServerThreads::ServerThreadMain(void *thread_id){
   void *msg_mem;
   bool destroy_mem = false;
   while(1) {
-    (comm_bus_->*CommBusRecvAny)(&sender_id, &zmq_msg);
+    CommBusRecvAnyWrapper(&sender_id, &zmq_msg);
 
     msg_type = MsgBase::get_msg_type(zmq_msg.data());
-    VLOG(0) << "msg_type = " << msg_type;
+    //VLOG(0) << "msg_type = " << msg_type;
     destroy_mem = false;
 
     if (msg_type == kMemTransfer) {
@@ -340,8 +392,10 @@ void *ServerThreads::ServerThreadMain(void *thread_id){
       {
 	VLOG(0) << "get ClientShutDown from bg " << sender_id;
 	bool shutdown = HandleShutDownMsg();
-	if(shutdown){
+	if (shutdown) {
+          VLOG(0) << "Server shutdown";
 	  comm_bus_->ThreadDeregister();
+	  FINALIZE_STATS();
 	  return 0;
 	}
 	break;
@@ -362,7 +416,9 @@ void *ServerThreads::ServerThreadMain(void *thread_id){
       {
 	VLOG(0) << "Received OpLog Msg!";
 	ClientSendOpLogMsg client_send_oplog_msg(msg_mem);
+	TIMER_BEGIN(0, SERVER_HANDLE_OPLOG_MSG);
 	HandleOpLogMsg(sender_id, client_send_oplog_msg);
+	TIMER_END(0, SERVER_HANDLE_OPLOG_MSG);
       }
       break;
     default:

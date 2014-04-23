@@ -1,31 +1,3 @@
-// Copyright (c) 2014, Sailing Lab
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the <ORGANIZATION> nor the names of its contributors
-// may be used to endorse or promote products derived from this software
-// without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
 // author: jinliang
 
 #pragma once
@@ -66,6 +38,37 @@ public:
   }
 };
 
+class RowRequestOpLogMgr : boost::noncopyable {
+public:
+  RowRequestOpLogMgr() { }
+
+  virtual ~RowRequestOpLogMgr() { }
+
+  // return true unless there's a previous request with lower or same clock
+  // number
+  virtual bool AddRowRequest(RowRequestInfo &request, int32_t table_id,
+                             int32_t row_id) = 0;
+
+  // Get a list of app thread ids that can be satisfied with this reply.
+  // Corresponding row requests are removed upon returning.
+  // If all row requests prior to some version are removed, those OpLogs are
+  // removed as well.
+  virtual int32_t InformReply(int32_t table_id, int32_t row_id, int32_t clock,
+    uint32_t curr_version, std::vector<int32_t> *app_thread_ids) = 0;
+
+  // Get OpLog of a particular version.
+  virtual BgOpLog *GetOpLog(uint32_t version) = 0;
+
+  virtual void InformVersionInc() = 0;
+  virtual void ServerAcknowledgeVersion(int32_t server_id,
+                                        uint32_t version) = 0;
+  virtual bool AddOpLog(uint32_t version, BgOpLog *oplog) = 0;
+
+  virtual BgOpLog *OpLogIterInit(uint32_t start_version,
+                                 uint32_t end_version) = 0;
+  virtual BgOpLog *OpLogIterNext(uint32_t *version) = 0;
+};
+
 // Keep track of row requests that are sent to server or that could
 // be potentially sent to server (row does not exist in process cache
 // but a request for that row has been sent out).
@@ -102,11 +105,11 @@ public:
 // oplog cannot be deleted until all row requests sent prior to its version
 // (exclusive) have been replied.
 
-class RowRequestMgr : boost::noncopyable {
+class SSPRowRequestOpLogMgr : public RowRequestOpLogMgr {
 public:
-  RowRequestMgr() {}
+  SSPRowRequestOpLogMgr() {}
 
-  ~RowRequestMgr() {
+  ~SSPRowRequestOpLogMgr() {
     for (auto iter = version_oplog_map_.begin();
       iter != version_oplog_map_.end(); iter++) {
       CHECK_NOTNULL(iter->second);
@@ -130,6 +133,13 @@ public:
 
   bool AddOpLog(uint32_t version, BgOpLog *oplog);
 
+  void InformVersionInc() { }
+  // not supported
+  void ServerAcknowledgeVersion(int32_t server_id, uint32_t version) { }
+
+  BgOpLog *OpLogIterInit(uint32_t start_version, uint32_t end_version);
+  BgOpLog *OpLogIterNext(uint32_t *version);
+
 private:
   // When a row request of version V has been answered, oplogs with version
   // > V are not needed if there isn't and won't be any requests needing those
@@ -148,10 +158,10 @@ private:
     std::list<RowRequestInfo> > pending_row_requests_;
 
   // version -> (table_id, OpLogPartition)
-  // The version number of a request means that all oplogs up to and including 
+  // The version number of a request means that all oplogs up to and including
   // this version have been applied to this row.
   // An OpLogPartition of version V is needed for requests sent before the oplog
-  // is sent. This means requests of version V - 1, V - 2, ... 
+  // is sent. This means requests of version V - 1, V - 2, ...
   std::map<uint32_t, BgOpLog* > version_oplog_map_;
 
   // how many pending requests are in this version?
@@ -159,6 +169,11 @@ private:
   // In increasing order of version number (need to consider version number wrap
   // around)
   std::map<uint32_t, int32_t> version_request_cnt_map_;
+
+  // used for OpLogIter
+  uint32_t oplog_iter_version_next_;
+  uint32_t oplog_iter_version_st_;
+  uint32_t oplog_iter_version_end_;
 };
 
 }  // namespace petuum

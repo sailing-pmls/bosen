@@ -1,31 +1,3 @@
-// Copyright (c) 2014, Sailing Lab
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the <ORGANIZATION> nor the names of its contributors
-// may be used to endorse or promote products derived from this software
-// without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
 // bg_workers.cpp
 // author: jinliang
 
@@ -34,6 +6,10 @@
 #include "petuum_ps/thread/mem_transfer.hpp"
 #include "petuum_ps/util/class_register.hpp"
 #include "petuum_ps/oplog/serialized_oplog_reader.hpp"
+#include "petuum_ps/client/ssp_client_row.hpp"
+#include "petuum_ps/thread/ssp_push_row_request_oplog_mgr.hpp"
+#include "petuum_ps/client/serialized_row_reader.hpp"
+#include "petuum_ps/util/stats.hpp"
 #include <utility>
 
 namespace petuum {
@@ -50,13 +26,30 @@ CommBus *BgWorkers::comm_bus_;
 CommBus::RecvFunc BgWorkers::CommBusRecvAny;
 CommBus::RecvTimeOutFunc BgWorkers::CommBusRecvTimeOutAny;
 CommBus::SendFunc BgWorkers::CommBusSendAny;
+BgWorkers::CreateClientRowFunc BgWorkers::MyCreateClientRow;
+CommBus::RecvAsyncFunc BgWorkers::CommBusRecvAsyncAny;
+CommBus::RecvWrapperFunc BgWorkers::CommBusRecvAnyWrapper;
 
-void BgWorkers::Init(int32_t id_st, std::map<int32_t, ClientTable* > *tables){
+std::mutex BgWorkers::system_clock_mtx_;
+std::condition_variable BgWorkers::system_clock_cv_;
+std::atomic_int_fast32_t BgWorkers::system_clock_;
+VectorClockMT BgWorkers::bg_server_clock_;
+BgWorkers::GetRowOpLogFunc BgWorkers::GetRowOpLog;
+boost::unordered_map<int32_t, boost::unordered_map<int32_t, bool> >
+BgWorkers::table_oplog_index_;
+
+void BgWorkers::Init(std::map<int32_t, ClientTable* > *tables) {
   threads_.resize(GlobalContext::get_num_bg_threads());
   thread_ids_.resize(GlobalContext::get_num_bg_threads());
   tables_ = tables;
-  id_st_ = id_st;
+  id_st_ = GlobalContext::get_head_bg_id(GlobalContext::get_client_id());
   comm_bus_ = GlobalContext::comm_bus;
+
+  int32_t my_client_id = GlobalContext::get_client_id();
+  int32_t my_head_bg_id = GlobalContext::get_head_bg_id(my_client_id);
+  for (int32_t i = 0; i < GlobalContext::get_num_bg_threads(); ++i) {
+    bg_server_clock_.AddClock(my_head_bg_id + i, 0);
+  }
 
   pthread_barrier_init(&init_barrier_, NULL,
     GlobalContext::get_num_bg_threads() + 1);
@@ -64,8 +57,10 @@ void BgWorkers::Init(int32_t id_st, std::map<int32_t, ClientTable* > *tables){
 
   if (GlobalContext::get_num_clients() == 1) {
     CommBusRecvAny = &CommBus::RecvInProc;
+    CommBusRecvAsyncAny = &CommBus::RecvInProcAsync;
   } else{
     CommBusRecvAny = &CommBus::Recv;
+    CommBusRecvAsyncAny = &CommBus::RecvAsync;
   }
 
   if (GlobalContext::get_num_clients() == 1) {
@@ -78,6 +73,34 @@ void BgWorkers::Init(int32_t id_st, std::map<int32_t, ClientTable* > *tables){
     CommBusSendAny = &CommBus::SendInProc;
   } else {
     CommBusSendAny = &CommBus::Send;
+  }
+
+  BgThreadMainFunc BgThreadMain;
+  ConsistencyModel consistency_model = GlobalContext::get_consistency_model();
+  switch(consistency_model) {
+    case SSP:
+      {
+        BgThreadMain = SSPBgThreadMain;
+        MyCreateClientRow = CreateSSPClientRow;
+        GetRowOpLog = SSPGetRowOpLog;
+      }
+      break;
+    case SSPPush:
+      {
+        BgThreadMain = SSPBgThreadMain;
+        MyCreateClientRow = CreateClientRow;
+        system_clock_ = 0;
+        GetRowOpLog = SSPGetRowOpLog;
+      }
+      break;
+    default:
+      LOG(FATAL) << "Unrecognized consistency model " << consistency_model;
+  }
+
+  if (GlobalContext::get_aggressive_cpu()) {
+    CommBusRecvAnyWrapper = CommBusRecvAnyBusy;
+  } else {
+    CommBusRecvAnyWrapper = CommBusRecvAnySleep;
   }
 
   int i;
@@ -155,11 +178,11 @@ bool BgWorkers::RequestRow(int32_t table_id, int32_t row_id, int32_t clock){
     request_row_msg.get_row_id() = row_id;
     request_row_msg.get_clock() = clock;
 
-    VLOG(0) << "BgWorkers request row clock = " << clock
-	    << " table_id = " << table_id
-	    << " row_id = " << row_id
-	    << " thread id = " << ThreadContext::get_id();
-    int32_t bg_id = GlobalContext::GetBgPartitionNum(table_id, row_id) + id_st_;
+    //VLOG(0) << "BgWorkers request row clock = " << clock
+    //	    << " table_id = " << table_id
+    //	    << " row_id = " << row_id
+    //	    << " thread id = " << ThreadContext::get_id();
+    int32_t bg_id = GlobalContext::GetBgPartitionNum(row_id) + id_st_;
     size_t sent_size = comm_bus_->SendInProc(bg_id, request_row_msg.get_mem(),
 				      request_row_msg.get_size());
     CHECK_EQ(sent_size, request_row_msg.get_size());
@@ -169,11 +192,38 @@ bool BgWorkers::RequestRow(int32_t table_id, int32_t row_id, int32_t clock){
     zmq::message_t zmq_msg;
     int32_t sender_id;
     comm_bus_->RecvInProc(&sender_id, &zmq_msg);
+    /*
+    bool received = comm_bus_->RecvInProcAsync(&sender_id, &zmq_msg);
+    while (!received) {
+      found = comm_bus_->RecvInProcAsync(&sender_id, &zmq_msg);
+      } */
     MsgType msg_type = MsgBase::get_msg_type(zmq_msg.data());
     CHECK_EQ(msg_type, kRowRequestReply);
   }
   return true;
 }
+
+void BgWorkers::RequestRowAsync(int32_t table_id, int32_t row_id,
+                                int32_t clock){
+  RowRequestMsg request_row_msg;
+  request_row_msg.get_table_id() = table_id;
+  request_row_msg.get_row_id() = row_id;
+  request_row_msg.get_clock() = clock;
+
+  int32_t bg_id = GlobalContext::GetBgPartitionNum(row_id) + id_st_;
+  size_t sent_size = comm_bus_->SendInProc(bg_id, request_row_msg.get_mem(),
+                                           request_row_msg.get_size());
+  CHECK_EQ(sent_size, request_row_msg.get_size());
+}
+
+void BgWorkers::GetAsyncRowRequestReply() {
+  zmq::message_t zmq_msg;
+  int32_t sender_id;
+  comm_bus_->RecvInProc(&sender_id, &zmq_msg);
+  MsgType msg_type = MsgBase::get_msg_type(zmq_msg.data());
+  CHECK_EQ(msg_type, kRowRequestReply);
+}
+
 
 void BgWorkers::ClockAllTables() {
   BgClockMsg bg_clock_msg;
@@ -184,6 +234,19 @@ void BgWorkers::SendOpLogsAllTables() {
   BgSendOpLogMsg bg_send_oplog_msg;
   SendToAllLocalBgThreads(bg_send_oplog_msg.get_mem(),
     bg_send_oplog_msg.get_size());
+}
+
+int32_t BgWorkers::GetSystemClock() {
+  return static_cast<int32_t>(system_clock_.load());
+}
+void BgWorkers::WaitSystemClock(int32_t my_clock) {
+  std::unique_lock<std::mutex> lock(system_clock_mtx_);
+  // The bg threads might have advanced the clock after my last check.
+  while (static_cast<int32_t>(system_clock_.load()) < my_clock) {
+    VLOG(0) << "Wait " << my_clock;
+    system_clock_cv_.wait(lock);
+    VLOG(0) << "wake up";
+  }
 }
 
 /* Private Functions */
@@ -220,6 +283,14 @@ void BgWorkers::SendToAllLocalBgThreads(void *msg, int32_t size){
     int32_t sent_size = comm_bus_->SendInProc(thread_ids_[i], msg, size);
     CHECK_EQ(sent_size, size);
   }
+}
+
+ClientRow *BgWorkers::CreateSSPClientRow(int32_t clock, AbstractRow *row_data) {
+  return reinterpret_cast<ClientRow*>(new SSPClientRow(clock, row_data));
+}
+
+ClientRow *BgWorkers::CreateClientRow(int32_t clock, AbstractRow *row_data) {
+  return (new ClientRow(clock, row_data));
 }
 
 void BgWorkers::BgServerHandshake(){
@@ -324,7 +395,7 @@ void BgWorkers::HandleCreateTables(){
       (comm_bus_->*CommBusRecvAny)(&name_node_id, &zmq_msg);
       MsgType msg_type = MsgBase::get_msg_type(zmq_msg.data());
 
-      VLOG(0) << "Received msgtype = " << msg_type;
+      //VLOG(0) << "Received msgtype = " << msg_type;
 
       CHECK_EQ(msg_type, kCreateTableReply);
       CreateTableReplyMsg create_table_reply_msg(zmq_msg.data());
@@ -339,7 +410,7 @@ void BgWorkers::HandleCreateTables(){
       // not thread-safe
       (*tables_)[table_id] = client_table;
 
-      VLOG(0) << "Reply app thread " << sender_id;
+      //VLOG(0) << "Reply app thread " << sender_id;
       size_t sent_size = comm_bus_->SendInProc(sender_id, zmq_msg.data(),
         zmq_msg.size());
       CHECK_EQ(sent_size, zmq_msg.size());
@@ -363,9 +434,9 @@ void BgWorkers::CheckForwardRowRequestToServer(int32_t app_thread_id,
     ProcessStorage &table_storage = table->get_process_storage();
     RowAccessor row_accessor;
     bool found = table_storage.Find(row_id, &row_accessor);
-    if(found) {
+    if (found) {
       // TODO: do not send if it's PUSH mode
-      if (row_accessor.GetClientRow()->GetMetadata().GetClock() >= clock) {
+      if (row_accessor.GetClientRow()->GetClock() >= clock) {
 	RowRequestReplyMsg row_request_reply_msg;
 	size_t sent_size = comm_bus_->SendInProc(app_thread_id,
           row_request_reply_msg.get_mem(), row_request_reply_msg.get_size());
@@ -384,13 +455,14 @@ void BgWorkers::CheckForwardRowRequestToServer(int32_t app_thread_id,
   // see. Which should be 1 less than the current version number.
   row_request.version = bg_context_->version - 1;
 
-  VLOG(0) << "check if request should be forwarded to server, version = "
-         << row_request.version;
+  //VLOG(0) << "check if request should be forwarded to server, version = "
+  //     << row_request.version;
 
   bool should_be_sent
-    = bg_context_->row_request_mgr.AddRowRequest(row_request, table_id, row_id);
+    = bg_context_->row_request_oplog_mgr->AddRowRequest(row_request, table_id,
+                                                        row_id);
 
-  VLOG(0) << "should_be_sent = " << should_be_sent;
+  //VLOG(0) << "should_be_sent = " << should_be_sent;
 
   if (should_be_sent) {
     int32_t server_id = GlobalContext::GetRowPartitionServerID(table_id,
@@ -401,14 +473,58 @@ void BgWorkers::CheckForwardRowRequestToServer(int32_t app_thread_id,
   }
 }
 
+void BgWorkers::ApplyOpLogsToRowData(int32_t table_id,
+                                     ClientTable *client_table, int32_t row_id,
+                                     uint32_t version, AbstractRow *row_data) {
+
+  if (version + 1 < bg_context_->version) {
+    BgOpLog *bg_oplog
+        = bg_context_->row_request_oplog_mgr->OpLogIterInit(version + 1,
+          bg_context_->version - 1);
+    uint32_t oplog_version;
+
+    while (bg_oplog != NULL) {
+      BgOpLogPartition *bg_oplog_partition = bg_oplog->Get(table_id);
+      // OpLogs that are after (exclusively) version should be applied
+      RowOpLog *row_oplog = bg_oplog_partition->FindOpLog(row_id);
+      if (row_oplog != 0) {
+        int32_t column_id;
+        void *update;
+        update = row_oplog->BeginIterate(&column_id);
+        while (update != 0) {
+          VLOG(0) << "ApplyOpLogs update = " << update;
+          row_data->ApplyIncUnsafe(column_id, update);
+          update = row_oplog->Next(&column_id);
+        }
+      }
+      bg_oplog
+          = bg_context_->row_request_oplog_mgr->OpLogIterNext(&oplog_version);
+    }
+  }
+
+  TableOpLog &table_oplog = client_table->get_oplog();
+  OpLogAccessor oplog_accessor;
+  if (table_oplog.FindOpLog(row_id, &oplog_accessor)) {
+    void *update;
+    int32_t column_id;
+    update = oplog_accessor.BeginIterate(&column_id);
+    while (update != 0) {
+      VLOG(0) << "ApplyOpLogs update = " << update;
+      row_data->ApplyIncUnsafe(column_id, update);
+      update = oplog_accessor.Next(&column_id);
+    }
+  }
+}
+
 void BgWorkers::HandleServerRowRequestReply(
-  ServerRowRequestReplyMsg &server_row_request_reply_msg) {
+    int32_t server_id,
+    ServerRowRequestReplyMsg &server_row_request_reply_msg) {
 
   int32_t table_id = server_row_request_reply_msg.get_table_id();
   int32_t row_id = server_row_request_reply_msg.get_row_id();
   int32_t clock = server_row_request_reply_msg.get_clock();
-  VLOG(0) << "table_id = " << table_id;
-  VLOG(0) << "Server reply clock = " << clock;
+  //VLOG(0) << "table_id = " << table_id;
+  //VLOG(0) << "Server reply clock = " << clock;
   uint32_t version = server_row_request_reply_msg.get_version();
 
   auto table_iter = tables_->find(table_id);
@@ -422,43 +538,17 @@ void BgWorkers::HandleServerRowRequestReply(
   row_data->Deserialize(server_row_request_reply_msg.get_row_data(),
     server_row_request_reply_msg.get_row_size());
 
-  // OpLogs that are after (exclusively) version should be applied to row data.
-  for(uint32_t oplog_version = version + 1;
-    oplog_version != bg_context_->version; oplog_version++){
-    VLOG(0) << "check oplog version " << oplog_version;
-    BgOpLog *bg_oplog = bg_context_->row_request_mgr.GetOpLog(oplog_version);
-    OpLogPartition *oplog_partition = bg_oplog->Get(table_id);
-    RowOpLog *row_oplog = oplog_partition->FindOpLog(row_id);
-    if (row_oplog != 0) {
-      int32_t column_id;
-      void *update;
-      update = row_oplog->BeginIterate(&column_id);
-      while (update != 0) {
-	row_data->ApplyIncUnsafe(column_id, update);
-	update = row_oplog->Next(&column_id);
-      }
-    }
-  }
+  bg_context_->row_request_oplog_mgr->ServerAcknowledgeVersion(server_id,
+                                                               version);
 
-  TableOpLog &table_oplog = client_table->get_oplog();
+  ApplyOpLogsToRowData(table_id, client_table, row_id, version, row_data);
 
-  OpLogAccessor oplog_accessor;
-  if (table_oplog.FindOpLog(row_id, &oplog_accessor)) {
-    void *update;
-    int32_t column_id;
-    update = oplog_accessor.BeginIterate(&column_id);
-    while (update != 0) {
-      row_data->ApplyIncUnsafe(column_id, update);
-      update = oplog_accessor.Next(&column_id);
-    }
-  }
-  RowMetadata row_metadata(clock);
-  ClientRow *client_row = new ClientRow(row_metadata, row_data);
+  ClientRow *client_row = MyCreateClientRow(clock, row_data);
   client_table->get_process_storage().Insert(row_id, client_row);
 
   std::vector<int32_t> app_thread_ids;
   int32_t clock_to_request
-    = bg_context_->row_request_mgr.InformReply(table_id, row_id, clock,
+    = bg_context_->row_request_oplog_mgr->InformReply(table_id, row_id, clock,
     bg_context_->version, &app_thread_ids);
 
   if (clock_to_request >= 0) {
@@ -468,6 +558,7 @@ void BgWorkers::HandleServerRowRequestReply(
     row_request_msg.get_clock() = clock_to_request;
     int32_t server_id = GlobalContext::GetRowPartitionServerID(table_id,
       row_id);
+    VLOG(0) << "send to server " << server_id;
     size_t sent_size = (comm_bus_->*CommBusSendAny)(server_id,
       row_request_msg.get_mem(), row_request_msg.get_size());
     CHECK_EQ(sent_size, row_request_msg.get_size());
@@ -477,46 +568,160 @@ void BgWorkers::HandleServerRowRequestReply(
   RowRequestReplyMsg row_request_reply_msg;
 
   for (int i = 0; i < (int) app_thread_ids.size(); ++i) {
-    VLOG(0) << "Reply to app thread " << app_thread_ids[i];
+    //LOG(0) << "Reply to app thread " << app_thread_ids[i];
     size_t sent_size = comm_bus_->SendInProc(app_thread_ids[i],
       row_request_reply_msg.get_mem(), row_request_reply_msg.get_size());
     CHECK_EQ(sent_size, row_request_reply_msg.get_size());
   }
 }
 
-void BgWorkers::ShutDownClean() {}
+void BgWorkers::ShutDownClean() {
+  delete bg_context_->row_request_oplog_mgr;
+  FINALIZE_STATS();
+}
 
-void BgWorkers::CreateSendOpLogs(BgOpLog *bg_oplog, bool is_clock) {
+void BgWorkers::ApplyServerPushedRow(uint32_t version, void *mem,
+  size_t mem_size) {
+
+  SerializedRowReader row_reader(mem, mem_size);
+  bool not_empty = row_reader.Restart();
+  // no row to read
+  if (!not_empty)
+    return;
+
+  int32_t table_id = 0;
+  int32_t row_id = 0;
+  size_t row_size = 0;
+  const void *data = row_reader.Next(&table_id, &row_id, &row_size);
+
+  int32_t curr_table_id = -1;
+  int32_t row_type = 0;
+  ClientTable *client_table = NULL;
+  while (data != NULL) {
+    VLOG(0) << "Get data = " << data << " table id = " << table_id
+         << " row id = " << row_id << " row size = " << row_size;
+    if (curr_table_id != table_id) {
+      auto table_iter = tables_->find(table_id);
+      CHECK(table_iter != tables_->end()) << "Cannot find table " << table_id;
+      client_table = table_iter->second;
+      row_type = client_table->get_row_type();
+      curr_table_id = table_id;
+    }
+    AbstractRow *row_data
+        = ClassRegistry<AbstractRow>::GetRegistry().CreateObject(row_type);
+    row_data->Deserialize(data, row_size);
+    VLOG(0) << "row data deserialized";
+    ApplyOpLogsToRowData(table_id, client_table, row_id, version, row_data);
+    ClientRow *client_row = MyCreateClientRow(0, row_data);
+    client_table->get_process_storage().Insert(row_id, client_row);
+
+    data = row_reader.Next(&table_id, &row_id, &row_size);
+  }
+}
+
+void BgWorkers::CommBusRecvAnyBusy(int32_t *sender_id,
+                                   zmq::message_t *zmq_msg) {
+  bool received = (comm_bus_->*CommBusRecvAsyncAny)(sender_id, zmq_msg);
+  while (!received) {
+    received = (comm_bus_->*CommBusRecvAsyncAny)(sender_id, zmq_msg);
+  }
+}
+
+void BgWorkers::CommBusRecvAnySleep(int32_t *sender_id,
+                                    zmq::message_t *zmq_msg) {
+  (comm_bus_->*CommBusRecvAny)(sender_id, zmq_msg);
+}
+
+bool BgWorkers::SSPGetRowOpLog(TableOpLog &table_oplog, int32_t row_id,
+                               RowOpLog **row_oplog_ptr) {
+  return table_oplog.GetEraseOpLog(row_id, row_oplog_ptr);
+}
+
+BgOpLog *BgWorkers::GetOpLogAndIndex() {
   std::vector<int32_t> server_ids = GlobalContext::get_server_ids();
-
   int32_t local_bg_index = ThreadContext::get_id() - id_st_;
   // get thread-specific data structure to assist oplog message creation
   // those maps may contain legacy data from previous runs
   std::map<int32_t, std::map<int32_t, size_t> > &server_table_oplog_size_map
     = bg_context_->server_table_oplog_size_map;
-  std::map<int32_t, ClientSendOpLogMsg* > &server_oplog_msg_map
-    = bg_context_->server_oplog_msg_map;
-  std::map<int32_t, size_t> &table_server_oplog_size_map
-    = bg_context_->table_server_oplog_size_map;
-  std::map<int32_t, size_t> &server_oplog_msg_size_map
-    = bg_context_->server_oplog_msg_size_map;
+  std::map<int32_t, size_t> &table_num_bytes_by_server
+      = bg_context_->table_server_oplog_size_map;
+
+  BgOpLog *bg_oplog = new BgOpLog;
 
   for (auto table_iter = tables_->cbegin(); table_iter != tables_->cend();
-    table_iter++) {
+       table_iter++) {
+    int32_t table_id = table_iter->first;
     TableOpLog &table_oplog = table_iter->second->get_oplog();
-    OpLogPartition *oplog_partition
-      = table_oplog.ResetOpLogPartition(local_bg_index);
-    bg_oplog->Add(table_iter->first, oplog_partition);
 
-    oplog_partition->GetSerializedSizeByServer(&table_server_oplog_size_map);
-    for (auto server_iter = table_server_oplog_size_map.begin();
-      server_iter != table_server_oplog_size_map.end(); server_iter++) {
-      server_table_oplog_size_map[server_iter->first][table_iter->first]
+    // Get OpLog index
+    cuckoohash_map<int32_t, bool> *new_table_oplog_index_ptr
+        = table_iter->second->GetAndResetOpLogIndex(local_bg_index);
+
+    size_t table_update_size
+        = table_iter->second->get_sample_row()->get_update_size();
+    BgOpLogPartition *bg_table_oplog = new BgOpLogPartition(table_id,
+                                                            table_update_size);
+
+    // Memory layout of serialized OpLogs for one row:
+    // 1. int32_t : num of rows
+    // For each row
+    // 1. a int32_t for row id
+    // 2. a int32_t for number of updates
+    // 3. an array of int32_t: column ids for updates
+    // 4. an array of updates
+    for(int i = 0; i < GlobalContext::get_num_servers(); ++i){
+      int32_t server_id = server_ids[i];
+      // 1. int32_t: number of rows
+      table_num_bytes_by_server[server_id] = sizeof(int32_t);
+    }
+
+    for (auto oplog_index_iter = new_table_oplog_index_ptr->cbegin();
+         !oplog_index_iter.is_end(); oplog_index_iter++) {
+      int32_t row_id = oplog_index_iter->first;
+      RowOpLog *row_oplog = 0;
+      bool found = GetRowOpLog(table_oplog, row_id, &row_oplog);
+      if (!found)
+        continue;
+
+      if (found && (row_oplog == 0)) {
+        table_oplog_index_[table_id][row_id] = true;
+        VLOG(0) << "found && row_oplog == 0";
+        continue;
+      }
+
+      // update oplog message size
+      int32_t server_id = GlobalContext::GetRowPartitionServerID(table_id,
+                                                                 row_id);
+      int32_t num_updates = row_oplog->GetSize();
+      // 1) row id
+      // 2) number of updates in that row
+      // 3) total size for column ids
+      // 4) total size for update array
+      table_num_bytes_by_server[server_id] += sizeof(int32_t) + sizeof(int32_t)
+        + sizeof(int32_t)*num_updates + table_update_size*num_updates;
+      VLOG(0) << "Calling InsertOpLog";
+      bg_table_oplog->InsertOpLog(row_id, row_oplog);
+    }
+    bg_oplog->Add(table_id, bg_table_oplog);
+    delete new_table_oplog_index_ptr;
+
+    for (auto server_iter = table_num_bytes_by_server.begin();
+      server_iter != table_num_bytes_by_server.end(); server_iter++) {
+      server_table_oplog_size_map[server_iter->first][table_id]
         = server_iter->second;
-      VLOG(0) << "server " << server_iter->first
-	      << " size = " << server_iter->second;
     }
   }
+  return bg_oplog;
+}
+
+void BgWorkers::CreateOpLogMsgs(const BgOpLog *bg_oplog) {
+  std::map<int32_t, std::map<int32_t, size_t> > &server_table_oplog_size_map
+      = bg_context_->server_table_oplog_size_map;
+  std::map<int32_t, ClientSendOpLogMsg* > &server_oplog_msg_map
+    = bg_context_->server_oplog_msg_map;
+  std::map<int32_t, size_t> &server_oplog_msg_size_map
+    = bg_context_->server_oplog_msg_size_map;
 
   std::map<int32_t, std::map<int32_t, void*> > table_server_mem_map;
 
@@ -525,48 +730,64 @@ void BgWorkers::CreateSendOpLogs(BgOpLog *bg_oplog, bool is_clock) {
     OpLogSerializer oplog_serializer;
     int32_t server_id = server_iter->first;
     server_oplog_msg_size_map[server_id]
-      = oplog_serializer.Init(server_iter->second);
-    VLOG(0) << "server_oplog_msg_size_map[server_id] = "
-	    << server_oplog_msg_size_map[server_id];
+        = oplog_serializer.Init(server_iter->second);
+
     server_oplog_msg_map[server_id]
       = new ClientSendOpLogMsg(server_oplog_msg_size_map[server_id]);
-    oplog_serializer.AssignMem(
-      server_oplog_msg_map[server_id]->get_data());
+    oplog_serializer.AssignMem(server_oplog_msg_map[server_id]->get_data());
 
     for (auto table_iter = tables_->cbegin(); table_iter != tables_->cend();
       table_iter++) {
       int32_t table_id = table_iter->first;
       uint8_t *table_ptr
 	= reinterpret_cast<uint8_t*>(oplog_serializer.GetTablePtr(table_id));
+      // table id
       *(reinterpret_cast<int32_t*>(table_ptr)) = table_iter->first;
+      // table update size
       *(reinterpret_cast<size_t*>(table_ptr + sizeof(int32_t)))
 	= table_iter->second->get_sample_row()->get_update_size();
+      // offset for table rows
       table_server_mem_map[table_id][server_id]
         = table_ptr + sizeof(int32_t) + sizeof(size_t);
     }
   }
-
+  VLOG(0) << "Here";
   for (auto table_iter = tables_->cbegin(); table_iter != tables_->cend();
     table_iter++) {
     int32_t table_id = table_iter->first;
-    OpLogPartition *oplog_partition = bg_oplog->Get(table_id);
+    BgOpLogPartition *oplog_partition = bg_oplog->Get(table_id);
     oplog_partition->SerializeByServer(&(table_server_mem_map[table_id]));
   }
+}
 
+void BgWorkers::HandleClockMsg(bool clock_advanced) {
+  BgOpLog *bg_oplog = GetOpLogAndIndex();
+  VLOG(0) << "Got OpLog and index";
+
+  CreateOpLogMsgs(bg_oplog);
+  VLOG(0) << "Created OpLogMsgs";
+  std::map<int32_t, ClientSendOpLogMsg* > &server_oplog_msg_map
+    = bg_context_->server_oplog_msg_map;
   for (auto oplog_msg_iter = server_oplog_msg_map.begin();
-    oplog_msg_iter != server_oplog_msg_map.end(); oplog_msg_iter++) {
-    oplog_msg_iter->second->get_is_clock() = is_clock;
+       oplog_msg_iter != server_oplog_msg_map.end(); oplog_msg_iter++) {
+    oplog_msg_iter->second->get_is_clock() = clock_advanced;
     oplog_msg_iter->second->get_client_id() = GlobalContext::get_client_id();
     oplog_msg_iter->second->get_version() = bg_context_->version;
     int32_t server_id = oplog_msg_iter->first;
 
-    VLOG(0) << "sending oplog to server " << server_id;
-    /*(comm_bus_->*CommBusSendAny)(server_id,
-      oplog_msg_iter->second->get_mem(), oplog_msg_iter->second->get_size());*/
-     MemTransfer::TransferMem(comm_bus_, server_id, oplog_msg_iter->second);
+    MemTransfer::TransferMem(comm_bus_, server_id, oplog_msg_iter->second);
     // delete message after send
     delete oplog_msg_iter->second;
     oplog_msg_iter->second = 0;
+  }
+  VLOG(0) << "OpLogMsgs are sent out";
+
+  bool tracked = bg_context_->row_request_oplog_mgr->AddOpLog(
+      bg_context_->version, bg_oplog);
+  ++bg_context_->version;
+  bg_context_->row_request_oplog_mgr->InformVersionInc();
+  if (!tracked) {
+    delete bg_oplog;
   }
 }
 
@@ -577,10 +798,14 @@ void BgWorkers::CreateSendOpLogs(BgOpLog *bg_oplog, bool is_clock) {
 // III. Receive connections from all app threads. Server message (currently none
 // for pull model) may come in at the same time.
 
-void *BgWorkers::BgThreadMain(void *thread_id){
+void *BgWorkers::SSPBgThreadMain(void *thread_id) {
+
   int32_t my_id = *(reinterpret_cast<int32_t*>(thread_id));
 
+  LOG(INFO) << "Bg Worker starts here, my_id = " << my_id;
+
   ThreadContext::RegisterThread(my_id);
+  REGISTER_THREAD_FOR_STATS(false);
 
   int32_t num_connected_app_threads = 0;
   int32_t num_deregistered_app_threads = 0;
@@ -588,6 +813,17 @@ void *BgWorkers::BgThreadMain(void *thread_id){
 
   bg_context_.reset(new BgContext);
   bg_context_->version = 0;
+  switch (GlobalContext::get_consistency_model()) {
+    case SSP:
+      bg_context_->row_request_oplog_mgr = new SSPRowRequestOpLogMgr;
+      break;
+    case SSPPush:
+      bg_context_->row_request_oplog_mgr = new SSPPushRowRequestOpLogMgr;
+      break;
+    default:
+      LOG(FATAL) << "Unrecognized consistency model: "
+                 << GlobalContext::get_consistency_model();
+  }
   // set up serveral maps at intialization and reuse them to avoid
   // costly rebuilding
   {
@@ -603,6 +839,8 @@ void *BgWorkers::BgThreadMain(void *thread_id){
       bg_context_->server_oplog_msg_size_map.insert({*server_iter, 0});
 
       bg_context_->table_server_oplog_size_map.insert({*server_iter, 0});
+
+      bg_context_->server_vector_clock.AddClock(*server_iter);
     }
   }
   {
@@ -646,12 +884,13 @@ void *BgWorkers::BgThreadMain(void *thread_id){
   void *msg_mem;
   bool destroy_mem = false;
   while (1) {
-    (comm_bus_->*CommBusRecvAny)(&sender_id, &zmq_msg);
+    CommBusRecvAnyWrapper(&sender_id, &zmq_msg);
+
     msg_type = MsgBase::get_msg_type(zmq_msg.data());
     destroy_mem = false;
 
     if (msg_type == kMemTransfer) {
-      VLOG(0) << "Received kMemTransfer message from " << sender_id;
+      //VLOG(0) << "Received kMemTransfer message from " << sender_id;
       MemTransferMsg mem_transfer_msg(zmq_msg.data());
       msg_mem = mem_transfer_msg.get_mem_ptr();
       msg_type = MsgBase::get_msg_type(msg_mem);
@@ -660,7 +899,7 @@ void *BgWorkers::BgThreadMain(void *thread_id){
       msg_mem = zmq_msg.data();
     }
 
-    VLOG(0) << "msg_type = " << msg_type;
+    //VLOG(0) << "msg_type = " << msg_type;
     switch (msg_type) {
       case kAppConnect:
         {
@@ -672,31 +911,31 @@ void *BgWorkers::BgThreadMain(void *thread_id){
               << GlobalContext::get_num_app_threads();
         }
         break;
-    case kAppThreadDereg:
-      {
-	++num_deregistered_app_threads;
-	if (num_deregistered_app_threads
-             == GlobalContext::get_num_app_threads()) {
-	  ClientShutDownMsg msg;
-	  int32_t name_node_id = GlobalContext::get_name_node_id();
-	  (comm_bus_->*CommBusSendAny)(name_node_id, msg.get_mem(),
-	    msg.get_size());
-	  int32_t num_servers = GlobalContext::get_num_servers();
-	  std::vector<int32_t> &server_ids = GlobalContext::get_server_ids();
-	  for (int i = 0; i < num_servers; ++i) {
-	    int32_t server_id = server_ids[i];
-	    (comm_bus_->*CommBusSendAny)(server_id, msg.get_mem(),
-	      msg.get_size());
-	  }
-	}
-      }
-      break;
-    case kServerShutDownAck:
-      {
-	++num_shutdown_acked_servers;
-	VLOG(0) << "get ServerShutDownAck from server " << sender_id;
-	if (num_shutdown_acked_servers == GlobalContext::get_num_servers() + 1)
-	  {
+      case kAppThreadDereg:
+        {
+          ++num_deregistered_app_threads;
+          if (num_deregistered_app_threads
+              == GlobalContext::get_num_app_threads()) {
+            ClientShutDownMsg msg;
+            int32_t name_node_id = GlobalContext::get_name_node_id();
+            (comm_bus_->*CommBusSendAny)(name_node_id, msg.get_mem(),
+              msg.get_size());
+            int32_t num_servers = GlobalContext::get_num_servers();
+            std::vector<int32_t> &server_ids = GlobalContext::get_server_ids();
+            for (int i = 0; i < num_servers; ++i) {
+              int32_t server_id = server_ids[i];
+              (comm_bus_->*CommBusSendAny)(server_id, msg.get_mem(),
+	        msg.get_size());
+            }
+          }
+        }
+        break;
+      case kServerShutDownAck:
+        {
+          ++num_shutdown_acked_servers;
+          VLOG(0) << "get ServerShutDownAck from server " << sender_id;
+          if (num_shutdown_acked_servers
+              == GlobalContext::get_num_servers() + 1) {
 	    VLOG(0) << "Bg worker " << my_id << " shutting down";
 	    comm_bus_->ThreadDeregister();
 	    ShutDownClean();
@@ -714,35 +953,56 @@ void *BgWorkers::BgThreadMain(void *thread_id){
     case kServerRowRequestReply:
       {
 	ServerRowRequestReplyMsg server_row_request_reply_msg(msg_mem);
-	HandleServerRowRequestReply(server_row_request_reply_msg);
+	HandleServerRowRequestReply(sender_id, server_row_request_reply_msg);
       }
       break;
     case kBgClock:
       {
-	BgOpLog *bg_oplog = new BgOpLog;
-	CreateSendOpLogs(bg_oplog, true);
-	bool tracked = bg_context_->row_request_mgr.AddOpLog(
-          bg_context_->version, bg_oplog);
-	++bg_context_->version;
-	if(!tracked){
-	  delete bg_oplog;
-	}
+        HandleClockMsg(true);
       }
       break;
-    case kBgSendOpLog:
+      case kBgSendOpLog:
       {
-	BgOpLog *bg_oplog = new BgOpLog;
-	CreateSendOpLogs(bg_oplog, false);
-	bool tracked = bg_context_->row_request_mgr.AddOpLog(
-          bg_context_->version, bg_oplog);
-	++bg_context_->version;
-	if(!tracked){
-	  delete bg_oplog;
-	}
+        HandleClockMsg(false);
       }
       break;
-    default:
-      LOG(FATAL) << "Unrecognized type";
+      case kServerPushRow:
+        {
+          ServerPushRowMsg server_push_row_msg(msg_mem);
+          VLOG(0) << "Received server push row msg";
+          uint32_t version = server_push_row_msg.get_version();
+          bg_context_->row_request_oplog_mgr->ServerAcknowledgeVersion(
+              sender_id, version);
+          // Need to apply the new rows before waking up the app threads
+          ApplyServerPushedRow(version, server_push_row_msg.get_data(),
+                               server_push_row_msg.get_avai_size());
+          VLOG(0) << "Apply ServerPushedRow done";
+          bool is_clock = server_push_row_msg.get_is_clock();
+          if (is_clock) {
+            int32_t server_clock = server_push_row_msg.get_clock();
+            VLOG(0) << "is clock, server_clock = " << server_clock;
+            CHECK_EQ(bg_context_->server_vector_clock.get_clock(sender_id) + 1,
+                     server_clock);
+            int32_t new_clock = bg_context_->server_vector_clock.Tick(
+               sender_id);
+            VLOG(0) << "thread id = " << my_id
+                    << " received clock from " << sender_id
+                    << " new clock = " << new_clock;
+            if (new_clock) {
+              int32_t new_system_clock = bg_server_clock_.Tick(my_id);
+              VLOG(0) << "new_system_clock = " << new_system_clock;
+              if (new_system_clock) {
+                system_clock_ += 1;
+                std::unique_lock<std::mutex> lock(system_clock_mtx_);
+                VLOG(0) << "system_clock_cv_.notify_all()";
+                system_clock_cv_.notify_all();
+              }
+            }
+          }
+        }
+        break;
+      default:
+        LOG(FATAL) << "Unrecognized type " << msg_type;
     }
 
     if (destroy_mem)

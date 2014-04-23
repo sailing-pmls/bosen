@@ -1,32 +1,4 @@
-// Copyright (c) 2014, Sailing Lab
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the <ORGANIZATION> nor the names of its contributors
-// may be used to endorse or promote products derived from this software
-// without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
-#include "petuum_ps/thread/row_request_mgr.hpp"
+#include "petuum_ps/thread/row_request_oplog_mgr.hpp"
 #include <utility>
 #include <glog/logging.h>
 #include <list>
@@ -34,7 +6,7 @@
 
 namespace petuum {
 
-bool RowRequestMgr::AddRowRequest(RowRequestInfo &request,
+bool SSPRowRequestOpLogMgr::AddRowRequest(RowRequestInfo &request,
   int32_t table_id, int32_t row_id) {
   uint32_t version = request.version;
   request.sent = true;
@@ -44,7 +16,7 @@ bool RowRequestMgr::AddRowRequest(RowRequestInfo &request,
     if (pending_row_requests_.count(request_key) == 0) {
       pending_row_requests_.insert(std::make_pair(request_key,
         std::list<RowRequestInfo>()));
-      VLOG(0) << "pending row requests does not have this table_id = " 
+      VLOG(0) << "pending row requests does not have this table_id = "
 	      << table_id << " row_id = " << row_id;
     }
     std::list<RowRequestInfo> &request_list
@@ -69,8 +41,6 @@ bool RowRequestMgr::AddRowRequest(RowRequestInfo &request,
     }
     if (!request_added)
       request_list.push_front(request);
-
-    
   }
 
   {
@@ -83,22 +53,19 @@ bool RowRequestMgr::AddRowRequest(RowRequestInfo &request,
   return request.sent;
 }
 
-int32_t RowRequestMgr::InformReply(int32_t table_id, int32_t row_id,
+int32_t SSPRowRequestOpLogMgr::InformReply(int32_t table_id, int32_t row_id,
   int32_t clock, uint32_t curr_version, std::vector<int32_t> *app_thread_ids) {
   (*app_thread_ids).clear();
   std::pair<int32_t, int32_t> request_key(table_id, row_id);
   std::list<RowRequestInfo> &request_list = pending_row_requests_[request_key];
   int32_t clock_to_request = -1;
 
-  //VLOG(0) << "request_list.empty() = " << request_list.empty();
-
   while (!request_list.empty()) {
     RowRequestInfo &request = request_list.front();
-    //VLOG(0) << "Get request, clock = " << request.clock;
     if (request.clock <= clock) {
       // remove the request
-      request_list.pop_front();
       app_thread_ids->push_back(request.app_thread_id);
+      request_list.pop_front();
       uint32_t req_version = request.version;
       // decrement the version count
       --version_request_cnt_map_[req_version];
@@ -135,8 +102,8 @@ int32_t RowRequestMgr::InformReply(int32_t table_id, int32_t row_id,
   return clock_to_request;
 }
 
-bool RowRequestMgr::AddOpLog(uint32_t version, BgOpLog *oplog) {
-  CHECK_EQ(version_oplog_map_.count(version), (size_t) 0) 
+bool SSPRowRequestOpLogMgr::AddOpLog(uint32_t version, BgOpLog *oplog) {
+  CHECK_EQ(version_oplog_map_.count(version), (size_t) 0)
      << "version number has wrapped"
      << " around, the system does not how to deal with it. "
      << "Maybe use a larger version number?";
@@ -149,13 +116,13 @@ bool RowRequestMgr::AddOpLog(uint32_t version, BgOpLog *oplog) {
   return false;
 }
 
-BgOpLog *RowRequestMgr::GetOpLog(uint32_t version) {
+BgOpLog *SSPRowRequestOpLogMgr::GetOpLog(uint32_t version) {
   auto iter = version_oplog_map_.find(version);
   CHECK(iter != version_oplog_map_.end());
   return iter->second;
 }
 
-void RowRequestMgr::CleanVersionOpLogs(uint32_t req_version,
+void SSPRowRequestOpLogMgr::CleanVersionOpLogs(uint32_t req_version,
   uint32_t curr_version) {
 
   // All oplogs that are saved must be of an earlier version than current
@@ -182,5 +149,23 @@ void RowRequestMgr::CleanVersionOpLogs(uint32_t req_version,
   } while((version_request_cnt_map_.count(version_to_remove) == 0)
     && (version_to_remove != curr_version));
 }
+
+BgOpLog *SSPRowRequestOpLogMgr::OpLogIterInit(uint32_t start_version,
+  uint32_t end_version) {
+  oplog_iter_version_st_ = start_version;
+  oplog_iter_version_end_ = end_version;
+  oplog_iter_version_next_ = oplog_iter_version_st_ + 1;
+  return GetOpLog(start_version);
+}
+
+
+BgOpLog *SSPRowRequestOpLogMgr::OpLogIterNext(uint32_t *version) {
+  if (oplog_iter_version_next_ > oplog_iter_version_end_)
+    return NULL;
+  *version = oplog_iter_version_next_;
+  ++oplog_iter_version_next_;
+  return GetOpLog(*version);
+}
+
 
 }  // namespace petuum

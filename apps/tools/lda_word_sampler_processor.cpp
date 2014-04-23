@@ -40,7 +40,7 @@
 #include <time.h>
 
 // All these are required command line inputs
-DEFINE_string(data_file, " ", "path to libsvm file.");
+DEFINE_string(data_file, " ", "path to doc file in libsvm format.");
 //DEFINE_string(vocab_file, " ", "path to vocab to int mapping.");
 DEFINE_string(output_file, " ",
     "Results are in output_file.0, output_file.1, etc.");
@@ -65,22 +65,24 @@ int main(int argc, char* argv[]) {
   // vocab_occur is a 2D array.
   std::vector<std::vector<doc_token_pair> > vocab_occur;
 
-  char *line = NULL, *ptr = NULL;
+  char *line = NULL, *ptr = NULL, *endptr = NULL;
   size_t num_bytes;
   FILE *data_stream = fopen(FLAGS_data_file.c_str(), "r");
   CHECK_NOTNULL(data_stream);
   LOG(INFO) << "Reading from data file " << FLAGS_data_file;
   int doc_id = 0;
   int32_t word_id, count;
+  int base = 10;
   while (getline(&line, &num_bytes, data_stream) != -1) {
-    // stat of a word
-    ptr = line; // point to the start
-    sscanf(ptr, "%*d"); // ignore # words in doc.
-    // Construct a word sampler
+    strtol(line, &endptr, base); // ignore first field (category label)
+    ptr = endptr;
     while (*ptr != '\n') {
       while (*ptr != ' ') ++ptr; // goto next space
       // read a word_id:count pair
-      sscanf(++ptr, "%d:%d", &word_id, &count);
+      word_id = strtol(++ptr, &endptr, base);
+      ptr = endptr; // colon
+      count = strtol(++ptr, &endptr, base);
+      ptr = endptr;
       if (word_id >= vocab_occur.size()) vocab_occur.resize(word_id + 1);
       vocab_occur[word_id].push_back(std::make_pair(doc_id, count));
       while (*ptr != ' ' && *ptr != '\n') ++ptr; // goto next space or \n
@@ -114,7 +116,9 @@ int main(int argc, char* argv[]) {
   std::random_shuffle(active_vocabs.begin(), active_vocabs.end(), myrandom);
 
   LOG(INFO) << "Read " << vocab_occur.size() << " vocabs from "
-    << doc_id << " docs. After filtering out 0 occurrence words, we have "
+    << doc_id << " docs. After filtering out "
+    << (vocab_occur.size() - active_vocabs.size())
+    << " zero occurrence words, we have "
     << active_vocabs.size() << " vocabs, " << num_tokens << " tokens."
     << " Each partition should have roughly " << num_tokens_per_partition
     << " tokens.";

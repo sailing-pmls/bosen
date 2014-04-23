@@ -1,31 +1,3 @@
-// Copyright (c) 2014, Sailing Lab
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the <ORGANIZATION> nor the names of its contributors
-// may be used to endorse or promote products derived from this software
-// without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
 // server_threads.hpp
 // author: jinliang
 
@@ -52,19 +24,29 @@ private:
   // server context is specific to the server thread
   struct ServerContext {
     std::vector<int32_t> bg_thread_ids_;
-    // one bg per client is refered to as head bg
-    std::map<int32_t, bool> head_bgs_;
     Server server_obj_;
     int32_t num_shutdown_bgs_;
   };
 
   static void *ServerThreadMain(void *server_thread_info);
 
+  //typedef void *(*ServerThreadMainFunc)(void *);
+
+  static void SSPPushServerPushRow();
+  static void SSPServerPushRow() { }
+  typedef void (*ServerPushRowFunc)();
+  static ServerPushRowFunc ServerPushRow;
+
+  typedef void (*RowSubscribeFunc)(ServerRow *server_row, int32_t client_id);
+  static RowSubscribeFunc RowSubscribe;
+  static void SSPRowSubscribe(ServerRow *server_row, int32_t client_id) {}
+  static void SSPPushRowSubscribe(ServerRow *server_row, int32_t client_id);
+
   // communication function
   // assuming the caller is not name node
   static void ConnectToNameNode();
   static int32_t GetConnection(bool *is_client, int32_t *client_id);
-  
+
   /**
    * Functions that operate on the particular thread's specific ServerContext.
    */
@@ -83,6 +65,9 @@ private:
   static void HandleOpLogMsg(int32_t sender_id,
     ClientSendOpLogMsg &client_send_oplog_msg);
 
+  static void SendServerPushRowMsg (int32_t bg_id, ServerPushRowMsg *msg,
+                                    bool last_msg);
+
   static pthread_barrier_t init_barrier;
   static std::vector<pthread_t> threads_;
   static std::vector<int32_t> thread_ids_;
@@ -91,6 +76,11 @@ private:
   static CommBus::RecvFunc CommBusRecvAny;
   static CommBus::RecvTimeOutFunc CommBusRecvTimeOutAny;
   static CommBus::SendFunc CommBusSendAny;
+  static CommBus::RecvAsyncFunc CommBusRecvAsyncAny;
+  static CommBus::RecvWrapperFunc CommBusRecvAnyWrapper;
+
+  static void CommBusRecvAnyBusy(int32_t *sender_id, zmq::message_t *zmq_msg);
+  static void CommBusRecvAnySleep(int32_t *sender_id, zmq::message_t *zmq_msg);
 
   static CommBus *comm_bus_;
 };

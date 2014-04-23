@@ -1,4 +1,4 @@
-// Copyright (c) 2014, Sailing Lab
+// Copyright (c) 2013, SailingLab
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,34 +26,37 @@
 // CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
-#pragma once
 
-namespace petuum {
+#include "utils.hpp"
 
-struct RowMetadata {
-public:
-  RowMetadata() : clock_(0) { }
+#include "math.h"
+#include <time.h>
 
-  explicit RowMetadata(int32_t clock):
-    clock_(clock) {}
+namespace {
+const double cof[6] = { 76.18009172947146, -86.50532032941677,
+                       24.01409824083091, -1.231739572450155,
+                       0.1208650973866179e-2, -0.5395239384953e-5
+                     };
+}
 
-  RowMetadata(const RowMetadata& other) :
-    clock_(other.clock_) { }
+namespace lda {
 
-  RowMetadata operator=(const RowMetadata& other) {
-    clock_ = other.clock_;
-    return *this;
-  }
+double LogGamma(double xx) {
+  int j;
+  double x, y, tmp1, ser;
+  y = xx;
+  x = xx;
+  tmp1 = x+5.5;
+  tmp1 -= (x+0.5)*log(tmp1);
+  ser = 1.000000000190015;
+  for (j = 0; j < 6; j++) ser += cof[j]/++y;
+  return -tmp1+log(2.5066282746310005*ser/x);
+}
 
-  int32_t GetClock() const {
-    return clock_;
-  }
-
-  void SetClock(int32_t clock) {
-    clock_ = clock;
-  }
-private:
-  int32_t clock_;
-};
+double get_time() {
+  struct timespec start;
+  clock_gettime(CLOCK_MONOTONIC, &start);
+  return (start.tv_sec + start.tv_nsec/1000000000.0);
+}
 
 }

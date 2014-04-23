@@ -1,31 +1,3 @@
-// Copyright (c) 2014, Sailing Lab
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the <ORGANIZATION> nor the names of its contributors
-// may be used to endorse or promote products derived from this software
-// without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
 /*
  * table_group.hpp
  * author: jinliang
@@ -89,6 +61,7 @@ public:
   static Table<UPDATE> GetTableOrDie(int32_t table_id) {
     auto iter = tables_.find(table_id);
     CHECK(iter != tables_.end()) << "Table " << table_id << " does not exist";
+    iter->second->RegisterThread();
     return Table<UPDATE>(iter->second);
   }
 
@@ -101,14 +74,20 @@ public:
   // A registered thread must deregister itself.
   static void DeregisterThread();
 
-  // Advance clock for the client.
+  // Advance clock for the application thread.
   //
   // Comment(wdai): We only use one vector clock per process, each clock for a
   // registered app thread. The vector clock is not associated with individual
   // tables.
   static void Clock();
 
-  // Reach global barrier by calling Clock() sufficiently many times.
+  // Called by application threads that access table API
+  // (referred to as table threads).
+  // Threads that calls GlobalBarrier must be at the same clock.
+  // 1) A table thread may not go beyond the barrier until all table threads
+  // have reached the barrier;
+  // 2) Table threads that move beyond the barrier are guaranteed to see
+  // the updates that other table threads apply to the table.
   static void GlobalBarrier();
 
 private:
@@ -123,7 +102,9 @@ private:
   static std::atomic<int> num_app_threads_registered_;
 
   // Max staleness among all tables.
-  static int32_t max_staleness_;
+  static int32_t max_table_staleness_;
+  static VectorClockMT vector_clock_;
+
 };
 
 }   // namespace petuum
