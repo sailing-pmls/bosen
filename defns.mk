@@ -16,7 +16,8 @@ PETUUM_CXXFLAGS = -g -O3 \
            -fno-builtin-calloc \
            -fno-builtin-realloc \
            -fno-builtin-free \
-           -fno-omit-frame-pointer
+           -fno-omit-frame-pointer \
+					 -DNDEBUG
 PETUUM_INCFLAGS = -I$(PETUUM_SRC) -I$(PETUUM_THIRD_PARTY_INCLUDE)
 PETUUM_LDFLAGS = -Wl,-rpath,$(PETUUM_THIRD_PARTY_LIB) \
           -L$(PETUUM_THIRD_PARTY_LIB) \

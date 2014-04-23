@@ -22,7 +22,7 @@
 
 #else  // NDEBUG
 
-#define REGISTER_THREAD_FOR_STATS() ((void) 0)
+#define REGISTER_THREAD_FOR_STATS(add_to_total_time) ((void) 0)
 #define TIMER_BEGIN(table_id, type) ((void) 0)
 #define TIMER_END(table_id, type) ((void) 0)
 #define FINALIZE_STATS() ((void) 0)
