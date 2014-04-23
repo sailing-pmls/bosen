@@ -14,6 +14,7 @@ DEFINE_int32(num_pre_clock, 0, "number of clocks before first Get.");
 DEFINE_int32(num_iterations, 200, "number of iterations.");
 
 const int kTableID = 1;
+const int kNumColumns = 1000;
 
 void OneRowTest(int thread_id) {
   petuum::TableGroup::RegisterThread();
@@ -29,8 +30,8 @@ void OneRowTest(int thread_id) {
     one_row_table.Get(0, &row_acc);
     const auto& one_row = row_acc.Get<petuum::DenseRow<int> >();
     // Do something with one_row...
-    for (int i = 0; i < 1000; ++i) {
-      one_row_table.Inc(0, 0, 1);
+    for (int i = 0; i < kNumColumns; ++i) {
+      one_row_table.Inc(0, i, 1);
     }
     petuum::TableGroup::Clock();
   }
@@ -79,7 +80,7 @@ int main(int argc, char *argv[]) {
   petuum::ClientTableConfig one_row_table_config;
   one_row_table_config.table_info.table_staleness = 0;
   one_row_table_config.table_info.row_type = dense_row_int_type_id;
-  one_row_table_config.table_info.row_capacity = 100;
+  one_row_table_config.table_info.row_capacity = kNumColumns;
   one_row_table_config.process_cache_capacity = 1;
   one_row_table_config.thread_cache_capacity = 1;
   one_row_table_config.oplog_capacity = 1;

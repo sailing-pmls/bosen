@@ -1,6 +1,6 @@
 
 host_filename="machinefiles/localserver"
-client_worker_threads=8
+client_worker_threads=12
 host_file=$(readlink -f $host_filename)
 
 progname=one_row_main
