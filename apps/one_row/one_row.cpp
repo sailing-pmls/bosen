@@ -4,7 +4,6 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <thread>
-#include <chrono>
 
 // Petuum Parameters
 DEFINE_string(hostfile, "", "Path to file containing server ip:port.");
@@ -12,9 +11,9 @@ DEFINE_int32(num_clients, 1, "Total number of clients");
 DEFINE_int32(num_worker_threads, 2, "Number of app threads in this client");
 DEFINE_int32(client_id, 0, "Client ID");
 DEFINE_int32(num_pre_clock, 0, "number of clocks before first Get.");
+DEFINE_int32(num_iterations, 200, "number of iterations.");
 
 const int kTableID = 1;
-const int kIter = 3;
 
 void OneRowTest(int thread_id) {
   petuum::TableGroup::RegisterThread();
@@ -22,18 +21,24 @@ void OneRowTest(int thread_id) {
   petuum::Table<int> one_row_table =
     petuum::TableGroup::GetTableOrDie<int>(kTableID);
 
-  for (int iter = 0; iter < kIter; ++iter) {
+  petuum::TableGroup::GlobalBarrier();
+
+  util::HighResolutionTimer timer;
+  for (int iter = 0; iter < FLAGS_num_iterations; ++iter) {
     petuum::RowAccessor row_acc;
-    util::HighResolutionTimer timer;
     one_row_table.Get(0, &row_acc);
     const auto& one_row = row_acc.Get<petuum::DenseRow<int> >();
-    std::this_thread::sleep_for (std::chrono::milliseconds(100));
-    if (thread_id == 0) {
-      LOG(INFO) << "iter " << iter << ": " << timer.elapsed() << " seconds.";
+    // Do something with one_row...
+    for (int i = 0; i < 1000; ++i) {
+      one_row_table.Inc(0, 0, 1);
     }
     petuum::TableGroup::Clock();
   }
-
+  if (thread_id == 0) {
+    LOG(INFO) << "sec per iteration: " << ": "
+      << timer.elapsed() / FLAGS_num_iterations
+      << " seconds.";
+  }
   petuum::TableGroup::DeregisterThread();
 }
 
@@ -70,7 +75,7 @@ int main(int argc, char *argv[]) {
   int32_t init_thread_id = petuum::TableGroup::Init(table_group_config, false);
   LOG(INFO) << "Initialized TableGroup, init thread id = " << init_thread_id;
 
-  // Summary row table (single_row).
+  // one row table (single_row).
   petuum::ClientTableConfig one_row_table_config;
   one_row_table_config.table_info.table_staleness = 0;
   one_row_table_config.table_info.row_type = dense_row_int_type_id;

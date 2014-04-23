@@ -1,11 +1,12 @@
 
 host_filename="machinefiles/localserver"
-client_worker_threads=4
+client_worker_threads=8
 host_file=$(readlink -f $host_filename)
 
 progname=one_row_main
 ssh_options="-oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -oLogLevel=quiet"
-num_pre_clock=5;
+num_pre_clock=5
+num_iterations=50
 
 # Find other Petuum paths by using the script's path
 script_path=`readlink -f $0`
@@ -39,6 +40,7 @@ for ip in $unique_host_list; do
     --num_worker_threads $client_worker_threads \
     --client_id $client_id \
     --num_pre_clock $num_pre_clock &
+
   # Wait a few seconds for the name node (client 0) to set up
   if [ $client_id -eq 0 ]; then
     echo "Waiting for name node to set up..."
