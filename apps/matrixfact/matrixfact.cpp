@@ -294,10 +294,7 @@ int main(int argc, char *argv[]) {
   petuum::GetHostInfos(FLAGS_hostfile, &table_group_config.host_map);
   petuum::GetServerIDsFromHostMap(&table_group_config.server_ids, table_group_config.host_map);
   table_group_config.client_id = FLAGS_client_id;
-  const uint32_t threadspace_per_process = 1000;
-  table_group_config.local_id_min = FLAGS_client_id * threadspace_per_process;
-  table_group_config.local_id_max = (FLAGS_client_id+1) * threadspace_per_process - 1;
-  table_group_config.consistency_model = petuum::SSP;
+  table_group_config.consistency_model = petuum::SSPPush;
   // Configure PS row types
   petuum::TableGroup::RegisterRow<petuum::DenseRow<float> >(0);  // Register dense rows as ID 0
   // Start PS

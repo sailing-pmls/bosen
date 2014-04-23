@@ -17,7 +17,7 @@ rm -f $output_file*
 
 LD_LIBRARY_PATH=${project_root}/third_party/lib:${LD_LIBRARY_PATH} \
   GLOG_logtostderr=true \
-  ./apps/tools/bin/lda_doc_sampler_processor \
+  ./apps/tools/bin/lda_processor \
   --data_file=$data_file  \
   --output_file=$output_file \
   --num_partitions=$num_partitions

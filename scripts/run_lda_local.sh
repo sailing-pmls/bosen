@@ -21,7 +21,7 @@ ssh_options="-oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -oLogLeve
 script_path=`readlink -f $0`
 script_dir=`dirname $script_path`
 project_root=`dirname $script_dir`
-prog_path=$project_root/apps/lda_doc_sampler/bin/$progname
+prog_path=$project_root/apps/lda/bin/$progname
 
 # Parse hostfile
 host_list=`cat $host_file | awk '{ print $2 }'`
@@ -33,7 +33,7 @@ killall -q $progname
 echo "Done killing previous instances!"
 
 client_id=0
-log_path=$project_root/lda_doc_sampler/client.${client_id}
+log_path=$project_root/lda/client.${client_id}
 
 cmd="rm -rf $log_path; mkdir -p $log_path; \
     GLOG_logtostderr=true \

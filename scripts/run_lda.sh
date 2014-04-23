@@ -1,68 +1,83 @@
 #!/bin/bash
-if [ -z $LD_LIBRARY_PATH ]; then
-  LD_LIBRARY_PATH=
-fi
-set -u
 
-if [ $# -ne 3 ]; then
-  echo "usage: $0 <server_file> <data set path> <num_client_threads>"
-  exit
-fi
-
-# petuum parameters
-server_file=$1
-data_set_path=$2
-num_client_threads=$3
-
-# lda parameters
+doc_filename="datasets/processed/20news2"
+num_vocabs=53485 # 20news
+host_filename="machinefiles/cogito-2"
+doc_file=$(readlink -f $doc_filename)
 num_topics=100
 num_iterations=10
+host_file=$(readlink -f $host_filename)
+client_worker_threads=4
+#output_prefix=$(pwd)/$7
+summary_table_staleness=4
+word_topic_table_staleness=2
 compute_ll_interval=1
+word_topic_table_process_cache_capacity=$num_vocabs
+log_dir="logs_lda_doc"
+
+progname=lda_main
+ssh_options="-oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -oLogLevel=quiet"
 
 # Find other Petuum paths by using the script's path
-app_prog=lda_main
 script_path=`readlink -f $0`
 script_dir=`dirname $script_path`
 project_root=`dirname $script_dir`
-third_party_lib=$project_root/third_party/lib
-lda_path=$project_root/bin/$app_prog
-config_file=$project_root/apps/lda/lda_tables.cfg
-output_prefix=$project_root/dump
+prog_path=$project_root/apps/lda/bin/$progname
 
-data_file=$data_set_path
-vocab_file=$data_file.map
+# Parse hostfile
+host_list=`cat $host_file | awk '{ print $2 }'`
+unique_host_list=`cat $host_file | awk '{ print $2 }' | uniq`
+num_unique_hosts=`cat $host_file | awk '{ print $2 }' | uniq | wc -l`
 
-# Parse hostfile. Only spawn 1 client process per host ip.
-host_file=`readlink -f $server_file`
-host_list=`cat $host_file | awk '{ print $2 }' | sort | uniq`
+# Kill previous instances of this program
+echo "Killing previous instances of '$progname' on servers, please wait..."
+for ip in $unique_host_list; do
+  ssh $ssh_options $ip \
+    killall -q $progname
+done
+echo "All done!"
+#exit
 
-echo "host_list  = $host_list"
+# Spawn program instances
+client_id=0
+rm -rf $log_dir/*
+for ip in $unique_host_list; do
+  echo Running client $client_id on $ip
 
-# Spawn clients
-client_rank=0
-client_offset=1000
-for ip in $host_list; do
-  echo "Running LDA client $client_rank"
-  if [ $client_rank -eq 0 ]; then
-    head_client=1
-  else
-    head_client=0
-  fi
-  ssh $ip \
-    LD_LIBRARY_PATH=$third_party_lib:${LD_LIBRARY_PATH} GLOG_logtostderr=true \
-    GLOG_v=-1  GLOG_vmodule="" \
-    $lda_path \
-    --server_file=$host_file \
-    --config_file=$config_file \
-    --num_threads=$num_client_threads \
-    --client_id=$(( client_offset+client_rank )) \
-    --data_file=${data_file}.$client_rank \
-    --vocab_file=$vocab_file \
+  log_path=$log_dir/client.$client_id
+  mkdir -p $log_path
+  rm -rf $log_path/*
+
+  cmd="rm -rf ~/lda${client_id}; mkdir ~/lda${client_id};
+      GLOG_logtostderr=true \
+      GLOG_log_dir=~/lda${client_id} \
+      GLOG_v=-1 \
+      GLOG_minloglevel=0 \
+      GLOG_vmodule="" \
+      $prog_path \
+      --PETUUM_stats_table_id -1 \
+      --PETUUM_stats_type_id 2 \
+      --hostfile $host_file \
+      --num_clients $num_unique_hosts \
+      --num_worker_threads $client_worker_threads \
+      --num_topics $num_topics \
+      --num_vocabs $num_vocabs \
+      --word_topic_table_process_cache_capacity \
+      $word_topic_table_process_cache_capacity \
+    --num_iterations $num_iterations \
     --compute_ll_interval=$compute_ll_interval \
-    --head_client=$head_client \
-    --num_topics=$num_topics \
-    --output_prefix=$output_prefix \
-    --num_iterations=$num_iterations &
-  
-  client_rank=$(( client_rank+1 ))
+    --doc_file=${doc_file}.$client_id \
+    --word_topic_table_staleness $word_topic_table_staleness \
+    --summary_table_staleness $summary_table_staleness \
+    --client_id $client_id"
+
+  #echo $cmd
+  ssh $ssh_options $ip $cmd &
+
+# Wait a few seconds for the name node (client 0) to set up
+  if [ $client_id -eq 0 ]; then
+    echo "Waiting for name node to set up..."
+    sleep 3
+  fi
+  client_id=$(( client_id+1 ))
 done

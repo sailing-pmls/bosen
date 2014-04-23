@@ -28,8 +28,6 @@ DEFINE_int32(num_topics, 100, "Number of topics.");
 DEFINE_int32(num_iterations, 10, "Number of iterations");
 DEFINE_int32(compute_ll_interval, 1,
     "Copmute log likelihood over local dataset on every N iterations");
-//DEFINE_bool(head_client, false, "If it is the contributor of doc likelihood");
-//DEFINE_string(output_prefix, "", "Prefix for output files. Use abs path.");
 
 // Misc
 DEFINE_int32(word_topic_table_staleness, 0, "staleness for word-topic table.");
