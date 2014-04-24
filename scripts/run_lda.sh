@@ -1,16 +1,18 @@
 #!/bin/bash
 
 doc_filename="datasets/processed/20news2"
+#doc_filename="datasets/processed/nytimes2"
 num_vocabs=53485 # 20news
+#num_vocabs=101636 # nytimes
 host_filename="machinefiles/cogito-2"
 doc_file=$(readlink -f $doc_filename)
 num_topics=100
-num_iterations=10
+num_iterations=20
 host_file=$(readlink -f $host_filename)
-client_worker_threads=4
+client_worker_threads=12
 #output_prefix=$(pwd)/$7
-summary_table_staleness=4
-word_topic_table_staleness=2
+summary_table_staleness=0
+word_topic_table_staleness=0
 compute_ll_interval=1
 word_topic_table_process_cache_capacity=$num_vocabs
 log_dir="logs_lda_doc"
@@ -55,8 +57,6 @@ for ip in $unique_host_list; do
       GLOG_minloglevel=0 \
       GLOG_vmodule="" \
       $prog_path \
-      --PETUUM_stats_table_id -1 \
-      --PETUUM_stats_type_id 2 \
       --hostfile $host_file \
       --num_clients $num_unique_hosts \
       --num_worker_threads $client_worker_threads \

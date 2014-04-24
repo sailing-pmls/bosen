@@ -113,9 +113,9 @@ int main(int argc, char *argv[]) {
 
   // Log-likelihood (llh) table. Single column; each column is a complete-llh.
   petuum::ClientTableConfig llh_table_config;
-  // Can have infinite staleness as it is write only (no read till end of
-  // program).
-  llh_table_config.table_info.table_staleness = FLAGS_summary_table_staleness;
+  // Use no staleness to print llh of previous iteration. (Note that computing
+  // llh already affects the execution, so staleness doesn't change much.)
+  llh_table_config.table_info.table_staleness = 0;
   llh_table_config.table_info.row_type = dense_row_double_type_id;
   llh_table_config.table_info.row_capacity = 2;   // two columns: "iter-# llh".
   llh_table_config.process_cache_capacity = FLAGS_num_iterations;

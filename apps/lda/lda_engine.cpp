@@ -138,7 +138,10 @@ void LDAEngine::Start() {
       // Each client take turn to compute word LLH.
       int num_clients = context.get_int32("num_clients");
       if (ith_llh % num_clients == client_id && thread_id == 0) {
-        lda_stats.ComputeWordLLH(ith_llh, iter);
+        lda_stats.ComputeWordLLH(ith_llh, iter + 1);
+        // print LLH up to last iteration (for real-time tracking).
+        int num_llh = std::max(0, ith_llh - 1);
+        LOG(INFO) << "LLH: " << lda_stats.PrintOneLLH(num_llh);
       }
     }
   }   // for iter.

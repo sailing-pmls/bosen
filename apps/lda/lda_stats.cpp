@@ -116,4 +116,13 @@ std::string LDAStats::PrintLLH(int32_t num_llh) {
   return output.str();
 }
 
+std::string LDAStats::PrintOneLLH(int32_t ith_llh) {
+  std::stringstream output;
+  petuum::RowAccessor llh_row_acc;
+  llh_table_.Get(ith_llh, &llh_row_acc);
+  const auto& llh_row = llh_row_acc.Get<petuum::DenseRow<double> >();
+  output << llh_row[0] << " " << llh_row[1] << std::endl;
+  return output.str();
+}
+
 }  // namespace lda

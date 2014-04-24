@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 #include <algorithm>    // std::random_shuffle
-#include <time.h>
 #include <set>
+#include <random>
 
 // All these are required command line inputs
 DEFINE_string(data_file, " ", "path to doc file in libsvm format.");
@@ -23,7 +23,10 @@ typedef int32_t token_count_t;
 typedef std::pair<doc_id_t, token_count_t> doc_token_pair;
 
 // random generator function:
-int myrandom (int i) { return rand() % i;}
+int myrandom (int i) {
+  static std::default_random_engine e;
+  return e() % i;
+}
 
 int main(int argc, char* argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
@@ -86,7 +89,6 @@ int main(int argc, char* argv[]) {
 
   // Do a random shuffling so each partition with the same number of tokens
   // will have roughly the same number of vocabs.
-  srand(time(NULL));
   std::random_shuffle(corpus.begin(), corpus.end(), myrandom);
 
   LOG(INFO) << "Read " << corpus.size() << " documents, containing "

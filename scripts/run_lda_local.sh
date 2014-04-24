@@ -7,7 +7,7 @@ doc_file=$(readlink -f $doc_filename)
 num_topics=100
 num_iterations=10
 host_file=$(readlink -f $host_filename)
-client_worker_threads=4
+client_worker_threads=12
 #output_prefix=$(pwd)/$7
 summary_table_staleness=0
 word_topic_table_staleness=0
@@ -42,8 +42,6 @@ cmd="rm -rf $log_path; mkdir -p $log_path; \
     GLOG_minloglevel=0 \
     GLOG_vmodule="" \
     $prog_path \
-    --PETUUM_stats_table_id -1 \
-    --PETUUM_stats_type_id 3 \
     --hostfile $host_file \
     --num_clients $num_unique_hosts \
     --num_worker_threads $client_worker_threads \

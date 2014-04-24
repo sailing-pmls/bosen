@@ -172,8 +172,9 @@ void FastDocSampler::SampleOneDoc(LDADocument* doc) {
       word_topic_updates.Update(new_topic, 1);
       word_topic_table_.BatchInc(it.Word(), word_topic_updates);
 
-      --summary_row_[old_topic];
-      ++summary_row_[new_topic];
+      // summary_row_ is already updated.
+      --summary_row_delta_[old_topic];
+      ++summary_row_delta_[new_topic];
     }
   }
 }

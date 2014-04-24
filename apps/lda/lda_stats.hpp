@@ -26,6 +26,9 @@ public:
   // Return a string of two columns: "iter-# llh."
   std::string PrintLLH(int32_t num_llh);
 
+  // Print just the ith_llh llh in "iter-# llh" format.
+  std::string PrintOneLLH(int32_t ith_llh);
+
 private:
   // ================ Topic Model Parameters =================
   // Number of topics.
