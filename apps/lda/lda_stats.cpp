@@ -9,6 +9,7 @@
 #include <string>
 #include <sstream>
 #include <iostream>
+#include <algorithm>
 
 namespace lda {
 
@@ -42,6 +43,7 @@ void LDAStats::ComputeOneDocLLH(int32_t ith_llh, LDADocument* doc) {
 
   // Compute doc-topic vector on the fly.
   std::vector<int32_t> doc_topic_vec(K_);
+  std::fill(doc_topic_vec.begin(), doc_topic_vec.end(), 0);
   int num_words = 0;
   for (LDADocument::WordOccurrenceIterator it(doc);
       !it.Done(); it.Next()) {
@@ -107,7 +109,7 @@ void LDAStats::ComputeWordLLH(int32_t ith_llh, int32_t iter) {
 
 std::string LDAStats::PrintLLH(int32_t num_llh) {
   std::stringstream output;
-  for (int i = 0; i < num_llh; ++i) {
+  for (int i = 1; i <= num_llh; ++i) {
     petuum::RowAccessor llh_row_acc;
     llh_table_.Get(i, &llh_row_acc);
     const auto& llh_row = llh_row_acc.Get<petuum::DenseRow<double> >();

@@ -16,7 +16,7 @@
 
 namespace lda {
 
-const int32_t LDAEngine::kInverseContentionProb = 10;
+const int32_t LDAEngine::kInverseContentionProb = 2;
 
 LDAEngine::LDAEngine() : thread_counter_(0), gen_(time(NULL)) {
   util::Context& context = util::Context::get_instance();
@@ -86,7 +86,7 @@ void LDAEngine::Start() {
   process_barrier_->wait();
   int num_iterations = context.get_int32("num_iterations");
   util::HighResolutionTimer total_timer;
-  for (int iter = 0; iter < num_iterations; ++iter) {
+  for (int iter = 1; iter <= num_iterations; ++iter) {
     docs_iter_ = docs_.begin();
     num_tokens_clock_ = 0;
     process_barrier_->wait();
@@ -138,10 +138,13 @@ void LDAEngine::Start() {
       // Each client take turn to compute word LLH.
       int num_clients = context.get_int32("num_clients");
       if (ith_llh % num_clients == client_id && thread_id == 0) {
-        lda_stats.ComputeWordLLH(ith_llh, iter + 1);
+        lda_stats.ComputeWordLLH(ith_llh, iter);
         // print LLH up to last iteration (for real-time tracking).
-        int num_llh = std::max(0, ith_llh - 1);
-        LOG(INFO) << "LLH: " << lda_stats.PrintOneLLH(num_llh);
+        int prev_llh_idx = ith_llh - 1;
+        if (prev_llh_idx >= 0) {
+          LOG(INFO) << "client " << client_id << " at iteration " << iter << " LLH: "
+            << lda_stats.PrintOneLLH(prev_llh_idx);
+        }
       }
     }
   }   // for iter.

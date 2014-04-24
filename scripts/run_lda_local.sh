@@ -1,13 +1,15 @@
 #!/bin/bash
 
 doc_filename="datasets/processed/20news1"
+#doc_filename="datasets/processed/nytimes1"
 num_vocabs=53485 # 20news
+#num_vocabs=101636 # nytimes
 host_filename="machinefiles/localserver"
 doc_file=$(readlink -f $doc_filename)
 num_topics=100
 num_iterations=10
 host_file=$(readlink -f $host_filename)
-client_worker_threads=12
+client_worker_threads=8
 #output_prefix=$(pwd)/$7
 summary_table_staleness=0
 word_topic_table_staleness=0
