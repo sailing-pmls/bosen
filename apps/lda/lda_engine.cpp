@@ -137,6 +137,7 @@ void LDAEngine::Start() {
       }
       // Each client take turn to compute word LLH.
       int num_clients = context.get_int32("num_clients");
+      process_barrier_->wait();
       if (ith_llh % num_clients == client_id && thread_id == 0) {
         lda_stats.ComputeWordLLH(ith_llh, iter);
         // print LLH up to last iteration (for real-time tracking).
