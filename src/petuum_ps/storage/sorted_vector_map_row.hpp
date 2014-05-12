@@ -39,9 +39,8 @@ private:  // private functions
   void OneSidedBubbleSort(int32_t vector_idx, bool forward);
 
   // Allocate new memory with new_capacity, which must be at least
-  // num_entries_. block_aligned sets capacity_ to the smallest multiples of
-  // K_BLOCK_SIZE_.
-  void SetAndAllocateCapacity(int32_t new_capacity, bool block_aligned = true);
+  // num_entries_. Always block align capacity_ to multiples of K_BLOCK_SIZE_.
+  void SetAndAllocateCapacity(int32_t new_capacity);
 
   // Remove vector_idx and shift the rest forward.
   void RemoveOneEntryAndCompact(int32_t vector_idx);
@@ -241,11 +240,10 @@ void SortedVectorMapRow<V>::OneSidedBubbleSort(int32_t vector_idx,
 }
 
 template<typename V>
-void SortedVectorMapRow<V>::SetAndAllocateCapacity(int32_t new_capacity,
-    bool block_aligned) {
+void SortedVectorMapRow<V>::SetAndAllocateCapacity(int32_t new_capacity) {
   CHECK_GE(new_capacity, num_entries_);
   int32_t remainder = new_capacity % K_BLOCK_SIZE_;
-  if (block_aligned && remainder != 0) {
+  if (remainder != 0) {
     new_capacity += K_BLOCK_SIZE_ - remainder;
   }
   //VLOG(0) << "Expanding capacity to " << new_capacity;
@@ -257,13 +255,12 @@ void SortedVectorMapRow<V>::SetAndAllocateCapacity(int32_t new_capacity,
 
 template<typename V>
 void SortedVectorMapRow<V>::RemoveOneEntryAndCompact(int32_t vector_idx) {
-  memcpy(entries_.get() + vector_idx, entries_.get() + vector_idx + 1,
+  memmove(entries_.get() + vector_idx, entries_.get() + vector_idx + 1,
       (num_entries_ - vector_idx - 1) * sizeof(Entry<V>));
   --num_entries_;
   // Compact criterion.
   if (capacity_ - num_entries_ >= 2 * K_BLOCK_SIZE_) {
-    // block_aligned sets capacity is to multiples of K_BLOCK_SIZE_.
-    SetAndAllocateCapacity(num_entries_, true);
+    SetAndAllocateCapacity(num_entries_);
   }
 }
 
@@ -312,7 +309,9 @@ bool SortedVectorMapRow<V>::Deserialize(const void* data, size_t num_bytes) {
   // Cannot set num_entries_, which would cause SetAndAllocateCapacity to
   // attempt to read entries_.
   int32_t num_entries = num_bytes / num_bytes_per_entry;
-  SetAndAllocateCapacity(num_entries, true);
+  SetAndAllocateCapacity(num_entries);
+
+  // Now we can adjust num_entries_.
   num_entries_ = num_entries;
   memcpy(entries_.get(), data, num_bytes);
   return true;
@@ -353,7 +352,7 @@ void SortedVectorMapRow<V>::ApplyIncUnsafe(int32_t column_id,
   }
   // Add a new entry.
   if (num_entries_ == capacity_) {
-    SetAndAllocateCapacity(capacity_ + K_BLOCK_SIZE_, true);
+    SetAndAllocateCapacity(capacity_ + K_BLOCK_SIZE_);
   }
 
   entries_[num_entries_++] = std::make_pair(column_id,
@@ -388,7 +387,7 @@ void SortedVectorMapRow<V>::ApplyBatchIncUnsafe(const int32_t *column_ids,
     }
     // Add a new entry.
     if (num_entries_ == capacity_) {
-      SetAndAllocateCapacity(capacity_ + K_BLOCK_SIZE_, true);
+      SetAndAllocateCapacity(capacity_ + K_BLOCK_SIZE_);
     }
 
     entries_[num_entries_++] = std::make_pair(column_ids[i], typed_updates[i]);
