@@ -1,0 +1,142 @@
+apply plugin: "cpp"
+apply plugin: "java"
+
+version = 0.21
+
+model {
+    toolChains {
+        clang(Clang)
+        gcc(Gcc)
+    }
+
+    platforms {
+        linux_amd64 {
+            architecture "amd64"
+            operatingSystem "linux"
+        }
+    }
+}
+if(!buildDir.exists()) {
+    buildDir.mkdir();
+}
+def jniDir = file("src/main/java/com/petuum/petuum_ps")
+def package_name = "com.petuum.petuum_ps"
+
+task generateNativeHeaders {
+    def interfaceTree = fileTree(dir: "interface", include: "petuum.i")
+    def nativeHeaderDir = file("src/petuum_ps/wrapper")
+    if(! buildDir.exists()) {
+        buildDir.mkdir()
+    }
+    if(! nativeHeaderDir.exists()) {
+        nativeHeaderDir.mkdir()
+    }
+    if (! jniDir.exists()) {
+        jniDir.mkdir()
+    }
+    doLast {
+        interfaceTree.each({file ->
+            def wrapper_name = file.getName().replace('.i', '_wrapper.cxx')
+            exec {
+                executable "swig"
+                args '-java'
+                args '-c++'
+                args '-package', package_name
+                args "-I$projectDir/src/petuum_ps"
+                args '-outdir', jniDir
+                args '-o', "$nativeHeaderDir/"+wrapper_name
+                args '-l', file
+
+            }
+        })
+    }
+}
+
+libraries {
+    petuum_ps {
+        binaries.all {
+            if(targetPlatform.operatingSystem.linux) {
+                    cppCompiler.args '-I', "${org.gradle.internal.jvm.Jvm.current().javaHome}/include/linux"
+            }
+            if(targetPlatform.operatingSystem.macOsX) {
+                cppCompiler.args '-I', "${org.gradle.internal.jvm.Jvm.current().javaHome}/include/darwin"
+            }
+            cppCompiler.args '-I', "${org.gradle.internal.jvm.Jvm.current().javaHome}/include"
+            cppCompiler.args '-I', "$projectDir/src"
+            cppCompiler.args '-I', "$projectDir/third_party/include"
+            cppCompiler.args '-fPIC'
+            cppCompiler.args '-g'
+            cppCompiler.args '-O3'
+            cppCompiler.args '-std=c++11'
+            cppCompiler.args '-Wall'
+            cppCompiler.args '-Wno-sign-compare'
+            cppCompiler.args '-fno-builtin-malloc'
+            cppCompiler.args '-fno-builtin-calloc'
+            cppCompiler.args '-fno-builtin-realloc'
+            cppCompiler.args '-fno-builtin-free'
+            cppCompiler.args '-fno-omit-frame-pointer'
+            linker.args '-L', "$projectDir/third_party/lib"
+            linker.args '-pthread'
+            linker.args '-lnsl'
+            linker.args '-luuid'
+            linker.args '-lrt'
+            linker.args '-lglog'
+            linker.args '-lzmq'
+            linker.args '-lboost_thread'
+            linker.args '-lboost_system'
+            linker.args '-lgflags'
+            linker.args '-ltcmalloc'
+            linker.args '-lconfig++'
+        }
+    }
+}
+
+sources {
+    petuum_ps {
+        cpp {
+            file("src/petuum_ps").listFiles().each{file ->
+                if(file.isDirectory()) {
+                    source.srcDirs file
+                }
+            }
+            source.exclude "*.hpp"
+            exportedHeaders.srcDirs "src"
+        }
+    }
+}
+
+task buildNativeLibrary {
+    //dependsOn generateNativeHeaders
+    outputFile = []
+    binaries.withType(SharedLibraryBinary) {binary ->
+        if(!buildable) {
+            return
+        }
+        buildNativeLibrary.dependsOn binary
+        buildNativeLibrary.outputFile.add(binary.tasks.builder.outputFile)
+    }
+}
+
+task copyLibrary(dependsOn: buildNativeLibrary, type: Copy) {
+    from buildNativeLibrary.outputFile
+    into file("$buildDir/libs")
+}
+
+build.dependsOn buildNativeLibrary
+build.dependsOn copyLibrary
+
+//java part
+
+    repositories {
+    maven {
+        url "https://oss.sonatype.org/content/repositories/snapshots/"
+    }
+    mavenCentral()
+}
+
+dependencies {
+    compile fileTree (dir: 'lib', includes: ['*.jar'])
+    compile 'org.apache.commons:commons-math3:3.3'
+}
+
+jar.dependsOn buildNativeLibrary

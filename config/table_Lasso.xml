@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Instruction:
+tablegroup:
+    hostfile: Path to file containing server ip:port.
+    num_tables: the number of tables.
+    num_total_server_threads: Total number of server threads.
+    num_total_bg_threads: Total number of background threads
+    num_total_clients: Total number of clients
+    num_local_server_threads: Number of server threads in one client
+    num_local_app_threads: Number of app threads in this client (worker + 1)
+    num_local_bg_threads: Number of background threads in one client
+clienttable:
+    id: table id.
+    table_staleness: staleness of the table.
+    row_type: 0 for dense row, 1 for sparse row
+    oplog_capacity:
+    row_capacity: Number of elements in each row
+    process_cache_capacity:
+    thread_cache_capacity:
+-->
+<tableconfigs>
+        <tablegroup
+            hostfile="machinefiles/two_nodes"
+            num_tables="1"
+            num_total_server_threads="2"
+            num_total_bg_threads="2"
+            num_total_clients="2"
+            num_local_server_threads="1"
+            num_local_app_threads="3"
+            num_local_bg_threads="1"
+            consistency_model="SSP"
+            descript="this is the table group config">
+        </tablegroup>
+        <clienttables>
+            <clienttable
+                    id="0"
+                    table_staleness="0"
+                    row_type="0"
+                    oplog_capacity="100"
+                    row_capacity="100"
+                    process_cache_capacity="100"
+                    thread_cache_capacity="10"
+                    descript="this is the first client table">
+            </clienttable>
+        </clienttables>
+</tableconfigs>

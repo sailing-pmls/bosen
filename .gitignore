@@ -6,6 +6,10 @@ third_party/include
 third_party/src
 third_party/share
 third_party/lib
+build/
+.gradle/
+.idea/
+*.iml
 
 external_testbed/third_party/gflags-2.0/
 external_testbed/third_party/glog-0.3.3/
