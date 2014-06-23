@@ -135,7 +135,7 @@ build.dependsOn copyLibrary
 }
 
 dependencies {
-    compile fileTree (dir: 'lib', includes: ['*.jar'])
+    compile fileTree (dir: 'jar', includes: ['*.jar'])
     compile 'org.apache.commons:commons-math3:3.3'
 }
 

@@ -67,7 +67,7 @@ public class DeployTask {
         //zip data and library files
         if(dataLibraryFile == null) {
             String[] localPaths = new String[3];
-            localPaths[0] = home + "lib";
+            localPaths[0] = home + "jar";
             localPaths[1] = home + "third_party/lib";
             localPaths[2] = home + "datasets";
             dataLibraryFile = zipLocalFiles(localPaths, "build/data_library.zip");
