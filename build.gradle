@@ -24,7 +24,7 @@ def package_name = "com.petuum.petuum_ps"
 
 task generateNativeHeaders {
     def interfaceTree = fileTree(dir: "interface", include: "petuum.i")
-    def nativeHeaderDir = file("$buildDir/swig")
+    def nativeHeaderDir = file("src/petuum_ps/wrapper")
     if(! buildDir.exists()) {
         buildDir.mkdir()
     }
@@ -99,7 +99,6 @@ sources {
                     source.srcDirs file
                 }
             }
-	        source.srcDirs "$buildDir/swig"
             source.exclude "*.hpp"
             exportedHeaders.srcDirs "src"
         }
