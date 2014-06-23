@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Instruction:
+This is a parameters file, the parameter name has to be the same as passing to program
+-->
+<parameters
+    num_rows="100"
+    num_cols="100"
+    input_X="datasets/lasso/X100"
+    input_Y="datasets/lasso/Y100"
+    lambda="0.2"
+    num_iters="100"
+    output_file="output/lasso/beta_table"
+    >
+</parameters>
