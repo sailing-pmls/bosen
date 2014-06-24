@@ -13,16 +13,18 @@ import java.util.zip.ZipOutputStream;
  */
 public class DeployTask {
 
-    public static final String username = "petuum";
-    public static final String password = "123456";
+    private String username;
+    private String password;
 
     private HashMap<Integer, String> hostMap = new HashMap<Integer, String>();
     private String remotePath = "~";
+    private String pathOfHostFile;
     private File packageFile;
     private File dataLibraryFile;
     private Vector<String> localRelativeFilesList = new Vector<String>();
 
     public DeployTask(String hostfile) throws IOException {
+        pathOfHostFile = hostfile;
         //read machine list
         Iterator<String> iter = Files.readAllLines(FileSystems.getDefault().getPath(hostfile), StandardCharsets.US_ASCII).iterator();
         while(iter.hasNext()) {
@@ -33,6 +35,11 @@ public class DeployTask {
             }
             hostMap.put(id, line[1]);
         }
+    }
+
+    public void setUsernameAndPassword(String username, String password) {
+        this.username = username;
+        this.password = password;
     }
 
     public void deploy(String mainClass) throws IOException {
@@ -54,7 +61,8 @@ public class DeployTask {
             {
                 sessionClient0 = session;
             }
-            String command = "export LD_LIBRARY_PATH=.:third_party/lib;java -classpath " + getClassPath() + " " + mainClass + " " + client_id++;
+            String command = "killall -q java;export LD_LIBRARY_PATH=.:third_party/lib;java -classpath " + getClassPath()
+                    + " " + mainClass + " " + client_id++ + " "+pathOfHostFile;
             session.execCommand(command);
         }
         if(sessionClient0 != null) {

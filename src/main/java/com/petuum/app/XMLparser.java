@@ -33,10 +33,7 @@ public class XMLparser {
             Element docEle = document.getRootElement();
             Element elem_table_group = docEle.element("tablegroup");
             if(elem_table_group != null ) {
-                /** host file **/
-                petuum.GetHostInfos(elem_table_group.attributeValue("hostfile"), table_group_config.getHost_map());
-                petuum.GetServerIDsFromHostMap(table_group_config.getServer_ids(),
-                        table_group_config.getHost_map());
+
                 /** table number **/
                 table_group_config.setNum_tables(
                         Integer.parseInt(elem_table_group.attributeValue("num_tables")));

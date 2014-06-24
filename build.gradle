@@ -52,6 +52,14 @@ task generateNativeHeaders {
     }
 }
 
+//download third_party libraries
+task compileThirdPartyLibaries(type: Exec) {
+    workingDir projectDir
+    executable "make"
+    args "path"
+    args "third_party_core"
+}
+//Build Petuum Library
 libraries {
     petuum_ps {
         binaries.all {
@@ -100,6 +108,7 @@ sources {
                 }
             }
             source.exclude "*.hpp"
+            source.exclude "*.o"
             exportedHeaders.srcDirs "src"
         }
     }
@@ -107,6 +116,7 @@ sources {
 
 task buildNativeLibrary {
     //dependsOn generateNativeHeaders
+    dependsOn compileThirdPartyLibaries
     outputFile = []
     binaries.withType(SharedLibraryBinary) {binary ->
         if(!buildable) {

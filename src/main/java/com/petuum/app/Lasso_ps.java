@@ -29,7 +29,9 @@ public class Lasso_ps {
         Map<String, String> param_map = new HashMap<String, String>();
         XMLparser.parseTableConfigs("config/table_Lasso.xml", table_group_config, client_table_config_map);
         XMLparser.parseParam("config/param_Lasso.xml", param_map);
-
+        petuum.GetHostInfos(args[1], table_group_config.getHost_map());
+        petuum.GetServerIDsFromHostMap(table_group_config.getServer_ids(),
+                table_group_config.getHost_map());
         table_group_config.setClient_id(Integer.parseInt(args[0]));
 
         // Configure PS row types

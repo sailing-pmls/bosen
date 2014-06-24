@@ -20,7 +20,6 @@ clienttable:
 -->
 <tableconfigs>
         <tablegroup
-            hostfile="machinefiles/two_nodes"
             num_tables="1"
             num_total_server_threads="2"
             num_total_bg_threads="2"
