@@ -18,15 +18,11 @@ public class HelloWorld {
         TableGroupConfig table_group_config = new TableGroupConfig();
         Map<Integer, ClientTableConfig> client_table_config_map = new HashMap<Integer, ClientTableConfig>();
         XMLparser.parseTableConfigs("config/table_HelloWorld.xml", table_group_config, client_table_config_map);
-
+        petuum.GetHostInfos(args[1], table_group_config.getHost_map());
+        petuum.GetServerIDsFromHostMap(table_group_config.getServer_ids(),
+                table_group_config.getHost_map());
         table_group_config.setClient_id(Integer.valueOf(args[0]));
-        //table_group_config.setLocal_id_min(0);
-        //table_group_config.setLocal_id_max(999);
-
-        //for (int i = 0; i < table_group_config.getHost_map().size(); i++) {
-        //    HostInfo hi = table_group_config.getHost_map().get(i);
-        //    log.info("machine: "+hi.getIp()+" : "+hi.getPort());
-        //}
+        
         // Configure PS row types
 		TableGroup.RegisterDenseFloatRow(0);         //dense row
         // Start PS
