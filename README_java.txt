@@ -11,7 +11,7 @@ We have written a demo program to despatch dependencies and run the java program
 
 As "unzip" is used in our despatcher, user needs to install "unzip" in every machine.
 
-After building, our demo program in src/main/java/petuum/app/Test.java can be executed by a Java IDE or by running: $java -classpath build/libs/petuum-0.21.jar:lib/ganymed-ssh2-build210.jar com.petuum.app.Test
+After building, our demo program in src/main/java/petuum/app/Test.java can be executed by a Java IDE or by running: $java -classpath build/libs/petuum-0.21.jar:jar/ganymed-ssh2-build210.jar com.petuum.app.Test
 
 Additional Tools:
 1. gradle-1.12

@@ -17,7 +17,7 @@ public class DeployTask {
     private String password;
 
     private HashMap<Integer, String> hostMap = new HashMap<Integer, String>();
-    private String remotePath = "~";
+    private String remotePath = "";
     private String pathOfHostFile;
     private File packageFile;
     private File dataLibraryFile;
@@ -42,7 +42,8 @@ public class DeployTask {
         this.password = password;
     }
 
-    public void deploy(String mainClass) throws IOException {
+    public void deploy(String mainClass, String remotePath) throws IOException {
+        this.remotePath = remotePath;
         Iterator<Map.Entry<Integer, String>> iter = hostMap.entrySet().iterator();
         Session sessionClient0 = null;
         int client_id = 0;
@@ -61,7 +62,7 @@ public class DeployTask {
             {
                 sessionClient0 = session;
             }
-            String command = "killall -q java;export LD_LIBRARY_PATH=.:third_party/lib;java -classpath " + getClassPath()
+            String command = "killall -q java;cd " + remotePath +";export LD_LIBRARY_PATH=.:third_party/lib;java -classpath " + getClassPath()
                     + " " + mainClass + " " + client_id++ + " "+pathOfHostFile;
             session.execCommand(command);
         }
@@ -90,6 +91,10 @@ public class DeployTask {
             localPaths[3] = home + "machinefiles";
           	packageFile = zipLocalFiles(localPaths, "build/package.zip");
         }
+        //create directory
+        Session session = conn.openSession();
+        session.execCommand("mkdir -p " + remotePath);
+        waitSession(session);
 	    //transfer
         SCPClient client = new SCPClient(conn);
         System.out.println("sending " + packageFile.getName() + " to " + conn.getHostname() + " ...");
@@ -97,8 +102,8 @@ public class DeployTask {
         System.out.println("sending " + dataLibraryFile.getName() + " to " + conn.getHostname() + " ...");
         client.put(dataLibraryFile.getAbsolutePath(), remotePath);
         //unzip
-        Session session = conn.openSession();
-        session.execCommand("unzip -o " + packageFile.getName() + ";rm " + packageFile.getName() + ";unzip -n " + dataLibraryFile.getName());
+        session = conn.openSession();
+        session.execCommand("cd " + remotePath +";unzip -o " + packageFile.getName() + ";rm " + packageFile.getName() + ";unzip -n " + dataLibraryFile.getName());
         waitSession(session);
         session.close();
     }
