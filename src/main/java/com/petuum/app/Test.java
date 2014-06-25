@@ -12,6 +12,6 @@ public class Test {
     static public void main(String[] args) throws IOException {
         DeployTask deployer = new DeployTask("machinefiles/two_nodes");
         deployer.setUsernameAndPassword("petuum", "123456");
-        deployer.deploy("com.petuum.app.Lasso_ps");
+        deployer.deploy("com.petuum.app.Lasso_ps", "workspace/test/petuum");
     }
 }
