@@ -5,8 +5,8 @@ This is a parameters file, the parameter name has to be the same as passing to p
 <parameters
     num_rows="100"
     num_cols="100"
-    input_X="datasets/lasso/X100"
-    input_Y="datasets/lasso/Y100"
+    input_X="datasets/lasso_data/X100"
+    input_Y="datasets/lasso_data/Y100"
     lambda="0.2"
     num_iters="100"
     output_file="output/lasso/beta_table"

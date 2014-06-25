@@ -119,7 +119,7 @@ public class DeployTask {
             if ((stdout.available() == 0) && (stderr.available() == 0))
             {
                 int conditions = session.waitForCondition(ChannelCondition.STDOUT_DATA | ChannelCondition.STDERR_DATA
-                        | ChannelCondition.EOF, 30000);
+                        | ChannelCondition.EOF, 10000);
 
                 if ((conditions & ChannelCondition.TIMEOUT) != 0)
                 {
