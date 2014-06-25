@@ -62,7 +62,7 @@ public class DeployTask {
             {
                 sessionClient0 = session;
             }
-            String command = "killall -q java;cd "+ remotePath +";export LD_LIBRARY_PATH=.:third_party/lib;java -classpath " + getClassPath()
+            String command = "killall -q java;cd " + remotePath +";export LD_LIBRARY_PATH=.:third_party/lib;java -classpath " + getClassPath()
                     + " " + mainClass + " " + client_id++ + " "+pathOfHostFile;
             session.execCommand(command);
         }
@@ -103,7 +103,7 @@ public class DeployTask {
         client.put(dataLibraryFile.getAbsolutePath(), remotePath);
         //unzip
         session = conn.openSession();
-        session.execCommand("cd "+ remotePath +";unzip -o " + packageFile.getName() + ";rm " + packageFile.getName() + ";unzip -n " + dataLibraryFile.getName());
+        session.execCommand("cd " + remotePath +";unzip -o " + packageFile.getName() + ";rm " + packageFile.getName() + ";unzip -n " + dataLibraryFile.getName());
         waitSession(session);
         session.close();
     }
