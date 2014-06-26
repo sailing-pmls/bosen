@@ -21,6 +21,7 @@ public class DeployTask {
     private String pathOfHostFile;
     private File packageFile;
     private File dataLibraryFile;
+    private File keyfile = new File(System.getProperty("user.home") + "/.ssh/id_rsa");
     private Vector<String> localRelativeFilesList = new Vector<String>();
 
     public DeployTask(String hostfile) throws IOException {
@@ -34,6 +35,13 @@ public class DeployTask {
                 continue;
             }
             hostMap.put(id, line[1]);
+        }
+    }
+
+    public void setPublicKeyAuthentication(String username, String privateFile) {
+        this.username = username;
+        if(privateFile != null) {
+            keyfile = new File(privateFile);
         }
     }
 
@@ -51,7 +59,11 @@ public class DeployTask {
             Map.Entry<Integer, String> entry = iter.next();
             Connection conn = new Connection(entry.getValue());
             conn.connect();
-            if(! conn.authenticateWithPassword(username, password)) {
+            boolean isAuthenticated = false;
+            if(keyfile.exists()) {
+                isAuthenticated = conn.authenticateWithPublicKey(username, keyfile, password);
+            }
+            if(!isAuthenticated && !conn.authenticateWithPassword(username, password)) {
                 throw new IOException("Authentication failed.");
             }
             //send packages
