@@ -32,7 +32,8 @@ public class Lasso_ps {
         petuum.GetHostInfos(args[1], table_group_config.getHost_map());
         petuum.GetServerIDsFromHostMap(table_group_config.getServer_ids(),
                 table_group_config.getHost_map());
-        table_group_config.setClient_id(Integer.parseInt(args[0]));
+	int client_id = Integer.parseInt(args[0]);
+        table_group_config.setClient_id(client_id);
 
         // Configure PS row types
         TableGroup.RegisterDenseFloatRow(0);         //dense row
@@ -79,6 +80,7 @@ public class Lasso_ps {
         TableGroup.CreateTableDone();
         log.info("Table create done!");
         //Thread operations
+	long start = System.currentTimeMillis();
         ExecutorService threadPool =
                 Executors.newFixedThreadPool(table_group_config.getNum_local_app_threads() - 1);
         for(int i=0; i<table_group_config.getNum_local_app_threads()-1; i++){
@@ -88,6 +90,10 @@ public class Lasso_ps {
         while (!threadPool.isTerminated()) {}
 
 //        lassoProblem.outputResult(output_file);
+	long end = System.currentTimeMillis();
+	if(client_id == 0) {
+	    log.info("Total running time is " + (end - start ) / 1000f + "s");
+	}
         log.info("Lasso_ps finished!");
     }
 }

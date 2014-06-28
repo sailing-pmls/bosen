@@ -21,7 +21,8 @@ public class HelloWorld {
         petuum.GetHostInfos(args[1], table_group_config.getHost_map());
         petuum.GetServerIDsFromHostMap(table_group_config.getServer_ids(),
                 table_group_config.getHost_map());
-        table_group_config.setClient_id(Integer.valueOf(args[0]));
+	int client_id = Integer.parseInt(args[0]);
+        table_group_config.setClient_id(client_id);
         
         // Configure PS row types
 		TableGroup.RegisterDenseFloatRow(0);         //dense row
@@ -41,6 +42,7 @@ public class HelloWorld {
         // Finished creating tables
         TableGroup.CreateTableDone();
         log.info("Table create done!");
+	long start = System.currentTimeMillis();
         //Thread operations
         ExecutorService threadPool =
                 Executors.newFixedThreadPool(table_group_config.getNum_local_app_threads()-1);
@@ -49,7 +51,10 @@ public class HelloWorld {
         }
         threadPool.shutdown();
         while (!threadPool.isTerminated()) {}
-
+	long end = System.currentTimeMillis();
+	if(client_id == 0) {	
+	    log.info("Total running time is " + (end - start) / 1000f + " s");
+	}
         log.info("Hello world!");
     }
 }
