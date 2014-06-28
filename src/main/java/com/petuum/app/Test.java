@@ -10,7 +10,7 @@ import java.io.IOException;
 public class Test {
 
     static public void main(String[] args) throws IOException {
-        DeployTask deployer = new DeployTask("machinefiles/two_nodes");
+        DeployTask deployer = new DeployTask("machinefiles/two_nodes", false);
         //authenticate:
         deployer.setUsernameAndPassword("suyuxin", "123");
         //or:

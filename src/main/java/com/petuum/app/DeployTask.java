@@ -20,12 +20,14 @@ public class DeployTask {
     private String remotePath = "";
     private String pathOfHostFile;
     private File packageFile;
+    private boolean isSharedFileSystem;
     private File dataLibraryFile;
     private File keyfile = new File(System.getProperty("user.home") + "/.ssh/id_rsa");
     private Vector<String> localRelativeFilesList = new Vector<String>();
 
-    public DeployTask(String hostfile) throws IOException {
+    public DeployTask(String hostfile, boolean isSharedFileSystem) throws IOException {
         pathOfHostFile = hostfile;
+	this.isSharedFileSystem = isSharedFileSystem;
         //read machine list
         Iterator<String> iter = Files.readAllLines(FileSystems.getDefault().getPath(hostfile), StandardCharsets.US_ASCII).iterator();
         while(iter.hasNext()) {
@@ -67,7 +69,9 @@ public class DeployTask {
                 throw new IOException("Authentication failed.");
             }
             //send packages
-            sendPackages(conn);
+	    if(!isSharedFileSystem || entry.getKey() == 0) {
+            	sendPackages(conn);
+	    }
             //run
 	        Session session = conn.openSession();
             if(entry.getKey() == 0)
