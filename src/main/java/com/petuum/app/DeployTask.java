@@ -74,7 +74,7 @@ public class DeployTask {
             {
                 sessionClient0 = session;
             }
-            String command = "killall -q java;cd " + remotePath +";export LD_LIBRARY_PATH=.:third_party/lib;java -classpath " + getClassPath()
+            String command = "killall -q petuum_ps;cd " + remotePath +";export LD_LIBRARY_PATH=.:third_party/lib:$LD_LIBRARY_PATH;exec -a petuum_ps java -classpath " + getClassPath()
                     + " " + mainClass + " " + client_id++ + " "+pathOfHostFile;
             session.execCommand(command);
         }
