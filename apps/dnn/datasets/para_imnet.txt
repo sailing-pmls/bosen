@@ -1,0 +1,7 @@
+num_layers: 6
+num_units_in_each_layer: 440 512 512 512 512 1993
+num_epochs: 2
+stepsize: 0.05
+mini_batch_size: 10
+num_smp_evaluate: 2000
+num_iters_evaluate: 10
