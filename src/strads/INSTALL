@@ -1,0 +1,98 @@
+
+0. Build Requirement: 
+  OS: Ubuntu 12.04 LTS 
+  Tools: cmake 2.8.7, autoconfig, automake, libtool 
+
+1. Build instructions 
+
+1.1 Lasso 
+  $cd ./build/lasso 
+  build/cmake -D APP_COMPILE:string=LASSO -D CMAKE_CXX_COMPILER=g++ ../
+  build/make
+
+1.2 Logistic Regression 
+  $cd ./build/logistic
+  build/cmake -D APP_COMPILE:string=LOGI -D CMAKE_CXX_COMPILER=g++ ../
+  build/make
+
+2. Configureation files to prepare 
+  mpi machine file 
+  STRADS topology conf
+  STRADS link conf 
+
+2.1 mpi machien file 
+  This is a typical MPI machine file where each line has an IP address of one machine 
+  example) 
+   10.51.1.7
+   10.51.1.11
+   10.51.1.17
+   10.51.1.22
+   10.51.1.27
+
+2.2 topology configuration file 
+
+   example) 5 machine case 
+
+   # IP       rank#  by-default handler (don't touch)
+   10.54.1.7    0     default_handler
+   10.54.1.11   1     default_handler
+   10.54.1.17   2     default_handler
+   10.54.1.22   3     default_handler
+   10.54.1.27   4     default_handler
+
+   WARNING: You shoud provide your own topologyfile according to your cluster configuration 
+
+2.3 link configuration file
+
+   example) 5 machine case 
+   # src-rank  src-port dst-rank dst-port 
+    4 46000 0 36000 
+    4 46001 1 36000 
+    4 46002 2 36000 
+    4 46003 3 36000 
+    0 46000 4 36001 
+    1 46000 4 36002 
+    2 46000 4 36003 
+    3 46000 4 36004 
+
+   WARNING: You shoud provide your own link according to your cluster configuration 
+
+3. Run applications 
+
+3.0 create log directory 
+
+   $cd pyscript 
+   pyscript/mkdir tmplog 
+
+3.1 Run Lasso Sample Code  
+   $cd pyscript 
+   pyscript/python lasso.py 
+   Warning: assume that 1) configuration files are appropriately created in step 2 
+                        2) path parameters in lasso.py are set to the right configuration/input files 
+
+3.2 Run Logistic Regression Sample Code  
+   $cd pyscript 
+   pyscript/python logi.py 
+   Warning: assume that 1) configuration files are appropriately created in step 2 
+                        2) path parameters in lasso.py are set to the right configuration/input files 
+
+3.3 Run Lasso Sample on a single machine   
+   $cd pyscript 
+   pyscript/python singlelasso.py 
+
+3.4 Run Logistic Regression Sample on a single machine   
+   $cd pyscript 
+   pyscript/python singlelogi.py 
+
+
+4. Data format 
+   STRADS use its own data format for fast uploading from disk. For help convert your data into STRADS matrix format, 
+   we provide a program that convert popular MMT (Matrix Market Exchange Format) file into STRADS matrix format. 
+   If a user use third party format, it's user's duty to convert the thrid party format into MMT format. 
+   
+4.1 Build file converter 
+    Assume that your current working directory is STRADS root directory 
+    cd /tool/mmt2bin 
+    make 
+
+    You will get mmt2bin executable. Ussage is "mmt2bin <input_mmt_file> <output_stradsfile_name>"

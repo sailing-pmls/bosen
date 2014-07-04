@@ -1,0 +1,44 @@
+# - Try to find the RDMA libraries
+# Once done this will define
+#
+# RDMA_FOUND - system has RDMA libraries
+# RDMA_INCLUDE_DIRS - the RDMA include directory
+# IBV_LIBRARIES - RDMA libraries
+
+MESSAGE(STATUS "Looking for RDMA...")
+
+FIND_PATH(RDMA_CM_INCLUDE_DIR rdma_cma.h PATHS 
+  /usr/include/
+  /usr/local/include/
+  PATH_SUFFIXES "rdma"
+  )
+
+FIND_PATH(RDMA_VERBS_INCLUDE_DIR verbs.h PATHS 
+  /usr/include/ 
+  /usr/local/include/
+  PATH_SUFFIXES "infiniband"
+  )
+
+FIND_LIBRARY(IBV_LIBRARIES NAMES ibverbs)
+
+IF(RDMA_CM_INCLUDE_DIR AND RDMA_VERBS_INCLUDE_DIR AND IBV_LIBRARIES)
+    SET(RDMA_FOUND 1)
+    
+    STRING(REGEX REPLACE "/infiniband$" "" RDMA_VERBS_INCLUDE_DIR_SUP ${RDMA_VERBS_INCLUDE_DIR})
+    SET(RDMA_VERBS_INCLUDE_DIR ${RDMA_VERBS_INCLUDE_DIR_SUP} CACHE PATH "RDMA Verbs header directory" FORCE)
+  
+    IF(NOT RDMA_FIND_QUIETLY)
+        MESSAGE(STATUS "Found ibverbs: ${IBV_LIBRARIES}")
+    ENDIF(NOT RDMA_FIND_QUIETLY)
+ELSE()
+    SET(RDMA_FOUND 0 CACHE BOOL "IBV library not found")
+    IF(RDMA_FIND_REQUIRED)
+        MESSAGE(FATAL_ERROR "Could NOT find IBV, error")
+    ELSE()
+        MESSAGE(STATUS "Could NOT find IBV, disabled")
+    ENDIF()
+ENDIF()
+
+SET(RDMA_INCLUDE_DIRS ${RDMA_CM_INCLUDE_DIR} ${RDMA_VERBS_INCLUDE_DIR})
+
+MARK_AS_ADVANCED(RDMA_CM_INCLUDE_DIR RDMA_VERBS_INCLUDE_DIR IBV_LIBRARIES)
