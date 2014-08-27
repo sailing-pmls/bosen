@@ -1,3 +1,16 @@
+Recent Changes
+==============
+
+Version 0.92:<br>
+-Fixed Lasso/LR not working on some machine configurations
+-Added --ps_row_cache_size option to MF, to control memory usage on very large matrices
+
+Version 0.91:<br>
+-Fixed minor bugs in the LDA app
+
+Version 0.9:<br>
+-Initial Petuum beta release
+
 Petuum
 ==============
 
