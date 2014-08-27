@@ -225,7 +225,7 @@ void LDAEngine::Start() {
   if (client_id == 0 && thread_id == 0) {
     int num_llh = num_work_units / compute_ll_interval_;
     LOG(INFO) << "\n" << lda_stats_->PrintLLH(num_llh);
-    //SaveLLH(num_llh);
+    SaveLLH(num_llh);
     LOG(INFO) << "Total time for " << num_work_units << " work units : "
       << total_timer.elapsed() << " sec.";
   }
@@ -281,7 +281,7 @@ void LDAEngine::ComputeLLH(int32_t ith_llh, int32_t iter, int32_t client_id,
       << "): " << lda_stats_->PrintOneLLH(ith_llh - 1);
 
     // Save llh to disk (in case of a crash).
-    //SaveLLH(ith_llh - 1);
+    SaveLLH(ith_llh - 1);
     lda_stats_->SetTime(ith_llh, total_timer.elapsed());
   } else {
     lda_stats_->ComputeWordLLH(ith_llh, vocab_id_start, vocab_id_end);
