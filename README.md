@@ -2,7 +2,7 @@ Recent Changes
 ==============
 
 Version 0.92:<br>
--Fixed Lasso/LR not working on some machine configurations
+-Fixed Lasso/LR not working on some machine configurations<br>
 -Added --ps_row_cache_size option to MF, to control memory usage on very large matrices
 
 Version 0.91:<br>
