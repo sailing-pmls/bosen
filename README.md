@@ -3,7 +3,8 @@ Recent Changes
 
 Version 0.92:<br>
 -Fixed Lasso/LR not working on some machine configurations<br>
--Added --ps_row_cache_size option to MF, to control memory usage on very large matrices
+-Added --ps_row_cache_size option to MF, to control memory usage on very large matrices<br>
+-Fixed LDA not saving log-likelihood to disk
 
 Version 0.91:<br>
 -Fixed minor bugs in the LDA app
