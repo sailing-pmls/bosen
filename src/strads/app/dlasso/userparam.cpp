@@ -57,12 +57,6 @@ DEFINE_string(pscheme1, "NOPART", "partitioning by row or column ");
 DEFINE_string(machtype1, "NOMACH", "What machine (scheduer coordinator worker) will need to load this file");
 DEFINE_string(alias1, "NOALIAS", "alias for this data");
 
-DEFINE_string(filename2, "NOFILE", "user input data file name");
-DEFINE_string(filenametype2, "NOTYPE", "row major/column major and partitioning");
-DEFINE_string(pscheme2, "NOPART", "partitioning by row or column ");
-DEFINE_string(machtype2, "NOMACH", "What machine (scheduer coordinator worker) will need to load this file");
-DEFINE_string(alias2, "NOALIAS", "alias for this data");
-
 DEFINE_string(filename3, "NOFILE", "user input data file name");
 DEFINE_string(filenametype3, "NOTYPE", "row major/column major and partitioning");
 DEFINE_string(pscheme3, "NOPART", "partitioning by row or column ");
