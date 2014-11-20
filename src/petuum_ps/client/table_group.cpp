@@ -39,7 +39,8 @@
 namespace petuum {
 TableGroup::TableGroup(const TableGroupConfig &table_group_config,
                        bool table_access, int32_t *init_thread_id):
-    AbstractTableGroup() {
+    AbstractTableGroup(),
+    max_table_staleness_(0) {
 
   int32_t num_total_server_threads
     = table_group_config.num_total_server_threads;
