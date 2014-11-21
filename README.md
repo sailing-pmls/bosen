@@ -3,6 +3,7 @@ Recent Changes
 
 Version 0.93:<br>
 -More compatibility fixes for Lasso/LR; should now work on a wider range of configurations
+-Hotfix 11/20/2014: Fixed an initialization issue with the PS, that affected LDA under some configurations
 
 Version 0.92:<br>
 -Fixed Lasso/LR not working on some machine configurations<br>
