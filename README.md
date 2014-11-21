@@ -2,19 +2,19 @@ Recent Changes
 ==============
 
 Version 0.93:<br>
--More compatibility fixes for Lasso/LR; should now work on a wider range of configurations
--Hotfix 11/20/2014: Fixed an initialization issue with the PS, that affected LDA under some configurations
+-More compatibility fixes for Lasso/LR; should now work on a wider range of configurations<br>
+-Hotfix 11/20/2014: Fixed an initialization issue with the PS, that affected LDA under some configurations<br>
 
 Version 0.92:<br>
 -Fixed Lasso/LR not working on some machine configurations<br>
 -Added --ps_row_cache_size option to MF, to control memory usage on very large matrices<br>
--Fixed LDA not saving log-likelihood to disk
+-Fixed LDA not saving log-likelihood to disk<br>
 
 Version 0.91:<br>
--Fixed minor bugs in the LDA app
+-Fixed minor bugs in the LDA app<br>
 
 Version 0.9:<br>
--Initial Petuum beta release
+-Initial Petuum beta release<br>
 
 Petuum
 ==============
