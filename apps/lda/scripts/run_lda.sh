@@ -24,6 +24,8 @@ word_topic_table_staleness=$staleness
 num_bg_threads=1
 num_server_threads=1
 disk_stream=false
+output_topic_word=false
+output_doc_topic=false
 
 # Figure out the paths.
 script_path=`readlink -f $0`
@@ -99,10 +101,13 @@ for ip in $unique_host_list; do
       $word_topic_table_process_cache_capacity \
       --client_id ${client_id} \
       --output_file_prefix ${output_file_prefix} \
-      --disk_stream=$disk_stream"
+      --disk_stream=$disk_stream \
+      --output_topic_word=$output_topic_word \
+      --output_doc_topic=$output_doc_topic"
 
-  ssh $ssh_options $ip $cmd &
-  #eval $cmd  # Use this to run locally (on one machine).
+  #ssh $ssh_options $ip $cmd &
+  echo $cmd
+  eval $cmd  # Use this to run locally (on one machine).
 
   # Wait a few seconds for the name node (client 0) to set up
   if [ $client_id -eq 0 ]; then

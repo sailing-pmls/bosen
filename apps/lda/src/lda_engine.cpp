@@ -49,6 +49,16 @@
 #include <petuum_ps_common/include/petuum_ps.hpp>
 #include <leveldb/db.h>
 
+DECLARE_int32(client_id);
+DECLARE_int32(num_topics);
+DECLARE_int32(summary_table_id);
+DECLARE_int32(word_topic_table_id);
+DECLARE_double(alpha);
+DECLARE_double(beta);
+DECLARE_string(output_file_prefix);
+DECLARE_bool(output_topic_word);
+DECLARE_bool(output_doc_topic);
+
 namespace lda {
 
 LDAEngine::LDAEngine() :
@@ -208,8 +218,16 @@ void LDAEngine::Start() {
     if (compute_ll_interval_ != -1 && work_unit % compute_ll_interval_ == 0) {
       int ith_llh = work_unit / compute_ll_interval_;
       int iter = work_unit * num_iters_per_work_unit;
-      ComputeLLH(ith_llh, iter, client_id, num_clients, thread_id, vocab_id_start,
-          vocab_id_end, total_timer, &workload_mgr);
+      ComputeLLH(ith_llh, iter, client_id, num_clients, thread_id,
+          vocab_id_start, vocab_id_end, total_timer, &workload_mgr);
+
+      // Head thread write out topic word stats (phi).
+      if (FLAGS_output_topic_word && client_id == 0 && thread_id == 0) {
+        SaveTopicWordDist();
+      }
+      if (FLAGS_output_doc_topic) {
+        SaveDocTopicDist(&workload_mgr);
+      }
     }
     STATS_APP_ACCUM_OBJ_COMP_END();
 
@@ -231,6 +249,100 @@ void LDAEngine::Start() {
   }
 
   petuum::PSTableGroup::DeregisterThread();
+}
+
+namespace {
+
+// 'doc_topic_vec' needs to have size == num topics.
+std::vector<float> ComputeDocTopicVector(LDADoc* doc) {
+  std::vector<float> doc_topic(FLAGS_num_topics);
+  for (LDADoc::Iterator it(doc); !it.IsEnd(); it.Next()) {
+    doc_topic[it.Topic()] += 1;
+  }
+  float norm = doc->GetNumTokens() + FLAGS_num_topics * FLAGS_alpha;
+  for (int k = 0; k < FLAGS_num_topics; ++k) {
+    doc_topic[k] = (doc_topic[k] + FLAGS_alpha) / norm;
+  }
+  return doc_topic;
+}
+
+}   // anonymous namespace
+
+void LDAEngine::SaveDocTopicDist(WorkloadManager* workload_mgr) {
+  petuum::HighResolutionTimer disk_output_timer;
+  std::string output_file = FLAGS_output_file_prefix + ".theta." +
+    std::to_string(FLAGS_client_id);
+  std::ofstream out_stream(output_file);
+  CHECK(out_stream) << "Failed to open output_file " << output_file;
+  workload_mgr->RestartWorkUnit();
+  while (!workload_mgr->IsEndOfAnIter()) {
+    LDADoc* doc = workload_mgr->GetOneDoc();
+    std::vector<float> doc_topic = ComputeDocTopicVector(doc);
+    for (int k = 0; k < FLAGS_num_topics; ++k) {
+      out_stream << doc_topic[k] << " ";
+    }
+    out_stream << std::endl;
+  }
+  LOG(INFO) << "doc topic (theta) was saved to "
+    << output_file << " in " << disk_output_timer.elapsed() << " sec.";
+}
+
+void LDAEngine::SaveTopicWordDist() {
+  petuum::HighResolutionTimer disk_output_timer;
+  std::vector<std::vector<float> > phi = GetTopicWordDist();
+  std::string output_file = FLAGS_output_file_prefix + ".phi";
+  std::ofstream out_stream(output_file);
+  CHECK(out_stream) << "Failed to open output_file " << output_file;
+  int max_vocab_id = master_loader_->GetMaxVocabID();
+  for (int k = 0; k < K_; ++k) {
+    for (int w = 0; w < max_vocab_id + 1; ++w) {
+      out_stream << phi[k][w] << " ";
+    }
+    out_stream << std::endl;
+  }
+  LOG(INFO) << "word topic (phi) was saved to "
+    << output_file << " in " << disk_output_timer.elapsed() << " sec.";
+}
+
+std::vector<std::vector<float> > LDAEngine::GetTopicWordDist() {
+  int max_vocab_id = master_loader_->GetMaxVocabID();
+
+  // Topic word table.
+  std::vector<std::vector<float> > topic_word_table;
+  topic_word_table.resize(K_);
+  for (auto& topic_row : topic_word_table) {
+    topic_row.resize(max_vocab_id + 1);
+  }
+
+  petuum::Table<int> word_topic_table =
+    petuum::PSTableGroup::GetTableOrDie<int>(FLAGS_word_topic_table_id);
+  for (int word_idx = 0; word_idx < max_vocab_id + 1; ++word_idx) {
+    petuum::RowAccessor word_topic_row_acc;
+    word_topic_table.Get(word_idx, &word_topic_row_acc);
+    const auto& word_topic_row =
+      word_topic_row_acc.Get<petuum::SortedVectorMapRow<int32_t> >();
+    for (petuum::SortedVectorMapRow<int>::const_iterator wt_it =
+        word_topic_row.cbegin(); !wt_it.is_end(); ++wt_it) {
+      int32_t topic = wt_it->first;
+      int32_t count = wt_it->second;
+      topic_word_table[topic][word_idx] += count;
+    }
+  }
+
+  petuum::Table<int> summary_table =
+    petuum::PSTableGroup::GetTableOrDie<int>(FLAGS_summary_table_id);
+  petuum::RowAccessor summary_row_acc;
+  summary_table.Get(0, &summary_row_acc);
+  const auto& summary_row =
+    summary_row_acc.Get<petuum::DenseRow<int> >();
+  for (int k = 0; k < K_; ++k) {
+    float norm = summary_row[k] + (max_vocab_id + 1) * FLAGS_beta;
+    for (int word = 0; word < max_vocab_id + 1; ++word) {
+      topic_word_table[k][word] =
+        (topic_word_table[k][word] + FLAGS_beta) / norm;
+    }
+  }
+  return topic_word_table;
 }
 
 void LDAEngine::SaveLLH(int up_to_ith_llh) {

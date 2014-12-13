@@ -66,6 +66,13 @@ private:  // private functions
       const petuum::HighResolutionTimer& total_timer,
       WorkloadManager* workload_mgr);
 
+  // Compute normalized topic word distribution (phi).
+  std::vector<std::vector<float> > GetTopicWordDist();
+
+  void SaveTopicWordDist();
+
+  void SaveDocTopicDist(WorkloadManager* workload_mgr);
+
 private:  // private data
   int32_t K_;   // number of topics
 

@@ -67,6 +67,10 @@ DEFINE_bool(disk_stream, false,
     "Turn it on when memory isn't enough for the dataset.");
 DEFINE_int32(disk_stream_batch_size, 1000,
     "Each worker thread gets disk_stream_batch_size docs at a time.");
+DEFINE_bool(output_topic_word, false, "Output phi to output_file_prefix.phi. "
+    "Each row is a topic.");
+DEFINE_bool(output_doc_topic, false, "Output theta to "
+    "output_file_prefix.theta.X, X is the client ID");
 
 // No need to change the following.
 DEFINE_int32(word_topic_table_id, 1, "ID within Petuum-PS");
