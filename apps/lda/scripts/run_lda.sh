@@ -14,6 +14,8 @@ num_work_units=5
 num_iters_per_work_unit=1
 num_clocks_per_work_unit=1
 compute_ll_interval=1
+output_topic_word=false
+output_doc_topic=false
 
 # System parameters:
 client_worker_threads=1
@@ -24,8 +26,6 @@ word_topic_table_staleness=$staleness
 num_bg_threads=1
 num_server_threads=1
 disk_stream=false
-output_topic_word=false
-output_doc_topic=false
 
 # Figure out the paths.
 script_path=`readlink -f $0`
