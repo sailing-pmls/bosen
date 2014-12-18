@@ -19,7 +19,8 @@ Version 0.9:<br>
 Petuum
 ==============
 
-Manual/Wiki: http://github.com/sailinglab/petuum/wiki
+Wiki manual (latest version of Petuum only): http://github.com/sailinglab/petuum/wiki
+PDF manual (for this version of Petuum): https://github.com/petuum/public/raw/release_0.93/Petuumv0.93documentation.pdf
 
 Website: http://www.petuum.org.
 
