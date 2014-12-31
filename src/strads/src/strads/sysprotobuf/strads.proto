@@ -1,0 +1,31 @@
+package strads_sysmsg;
+
+enum matrix_type {
+     cm_map=0;
+     cm_vec=1;
+     rm_map=2;
+     rm_vec=3;
+     dense2d=4;
+}
+
+message dshardctxmsg_ {
+	required string		fn=1;
+	required string 	alias=2;
+	required matrix_type 	mtype=3;
+	required uint64   	maxrow=4;
+	required uint64   	maxcol=5;
+}
+
+message singlebucket {
+  repeated int32 wid = 1 [packed=true]; 
+}
+
+message sysmsg{
+  optional string filename = 1;
+  optional string alias =2;
+  optional int32 max_row =3;
+  optional int32 max_col = 4;
+  repeated singlebucket rbuckets=5;
+  repeated singlebucket cbuckets=6;
+  optional dshardctxmsg_ dshardctxmsg=7;
+}

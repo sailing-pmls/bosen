@@ -1,0 +1,11 @@
+
+
+scheme language compile 
+protoc -I=$SRC_DIR --cpp_out=$DST_DIR $SRC_DIR/addressbook.proto
+
+
+compile 
+
+g++ -lprotobuf  -o  executable ./main.cc ./phone.pb.cc 
+
+ 

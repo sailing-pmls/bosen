@@ -1,0 +1,12 @@
+src_feat_dim: 780
+dst_feat_dim: 600
+lambda: 1
+thre: 1
+learn_rate: 0.001
+epoch: 50
+num_total_pts: 60000
+num_simi_pairs: 1000
+num_diff_pairs: 1000
+mini_batch_size: 100
+num_iters_evaluate: 1000
+num_smps_evaluate: 1000

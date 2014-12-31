@@ -1,0 +1,6 @@
+num_test: 30
+feature_dim: 4
+num_labels: 3
+format: libsvm
+feature_one_based: 0
+label_one_based: 0

@@ -1,0 +1,61 @@
+#include <strads/ds/dshard.hpp>
+//#include <strads/ds/spmat.hpp>
+//#include <string>
+//#include <set>
+//#include <map>
+//#include <strads/sysprotobuf/strads.pb.hpp>
+//#include <google/protobuf/message_lite.h>
+
+dshardctx::dshardctx(void *buf, long len){
+
+  std::string msgstring((char *)buf, len);
+  strads_sysmsg::sysmsg msg;
+  msg.ParseFromString(msgstring);   
+
+  int rows = msg.rbuckets_size();
+  int cols = msg.cbuckets_size();
+
+#if 0
+  buf = ctx->sync_recv(&length);
+  assert(length > 0);
+  string bstringrecv((char *)buf, length);
+  stradslda::worker2coord bmsg;
+  bmsg.ParseFromString(bstringrecv);
+  strads_msg(INF, "[worker(%d)] Got Word Bucket Info Init \n", ctx->rank);
+
+  // FOR TEST                                                                                                                       
+  if(ctx->rank == 0){
+    int parts = bmsg.buckets_size();
+    for(int i=0; i<parts; i++){
+      const stradslda::singlebucket &entry = bmsg.buckets(i);
+      strads_msg(ERR, " Received : bucket(%d) has entries %d\n", i, entry.wid_size());
+    }
+  }
+  ////////////////////////////////////////////////////////////////////////////////////                                              
+  vector<vector<int>>buckets_;
+  buckets_.reserve(ctx->m_worker_machines);
+
+  int parts = bmsg.buckets_size();
+  strads_msg(ERR, "Parts : %d\n", parts);
+  assert(parts == ctx->m_worker_machines);
+
+  int wordmax = 0;
+  for(int i=0; i<parts; i++){
+    const stradslda::singlebucket &entry = bmsg.buckets(i);
+    wordmax += entry.wid_size();
+    strads_msg(ERR, " Received : bucket(%d) has entries %d\n", i, entry.wid_size());
+    strads_msg(INF, " Received : bucket(%d) has entries wid(0) %d\n", i, entry.wid(0));
+    //    buckets_[i].reserve(entry.wid_size());                                                                                    
+    vector<int> tmpvector;
+    for(int j=0; j < entry.wid_size(); j++){
+      tmpvector.push_back(entry.wid(j));
+    }
+    buckets_.push_back(tmpvector);
+#endif 
+
+}
+
+void * dshardctx::serialize(long *len){
+
+  return NULL;
+}

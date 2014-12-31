@@ -1,0 +1,88 @@
+#pragma once 
+
+#include <strads/ds/spmat.hpp>
+//#include <strads/include/common.hpp>
+#include <strads/include/cas_array.hpp>
+#include <string>
+#include <set>
+#include <map>
+#include <strads/sysprotobuf/strads.pb.hpp>
+#include <google/protobuf/message_lite.h>
+
+enum matrix_type {cm_map, cm_vec, rm_map, rm_vec, dense2d }; 
+// cm_map : colum major sparse matrix with STL map representation
+// cm_vec : colum major sparse matrix with STL vector representation 
+// rm_map : row major sparse matrix with STL vector representation 
+// rm_vec : row major sparse matrix with STL vector representation 
+// dense2d : 2-d array dense type  
+
+// dshardctx : distributed data representation of 2d array by default
+class dshardctx{
+public:
+  // No default null constructore. 
+  dshardctx(std::string fn, std::string alias, matrix_type type, int maxrow, int maxcol):
+    m_fn(fn), m_alias(alias), m_type(type), m_maxrow(maxrow), m_maxcol(maxcol){
+  }
+
+  dshardctx(std::string fn, std::string alias, matrix_type type, int maxrow, int maxcol, std::set<int> &rowset, std::set<int> &colset):
+    m_fn(fn), m_alias(alias), m_type(type), m_maxrow(maxrow), m_maxcol(maxcol), m_rowset(rowset), m_colset(colset){
+  }
+
+  dshardctx(std::string fn, std::string alias, matrix_type type, int maxrow, int maxcol, std::map<int, bool> &rowmap, std::map<int, bool> &colmap):
+    m_fn(fn), m_alias(alias), m_type(type), m_maxrow(maxrow), m_maxcol(maxcol), m_rowmap(rowmap), m_colmap(colmap){
+  }
+
+  dshardctx(dshardctx *t,std::set<int> &rowset, std::set<int> &colset):
+    m_fn(t->m_fn), m_alias(t->m_alias), m_type(t->m_type), m_maxrow(t->m_maxrow), m_maxcol(t->m_maxcol), m_rowset(rowset), m_colset(colset){
+  }
+
+  dshardctx(dshardctx *t,std::map<int, bool> &rowmap, std::map<int, bool> &colmap):
+    m_fn(t->m_fn), m_alias(t->m_alias), m_type(t->m_type), m_maxrow(t->m_maxrow), m_maxcol(t->m_maxcol), m_rowmap(rowmap), m_colmap(colmap){
+  }
+
+  dshardctx(void *buf, long len);
+  std::string m_fn;
+  std::string m_alias;
+
+  matrix_type m_type; // physical format -- row or col major 
+  uint64_t m_maxrow; // max range in rows
+  uint64_t m_maxcol; // ram range in col
+
+  std::set<int> m_rowset;
+  std::set<int> m_colset;
+
+  std::map<int, bool> m_rowmap;
+  std::map<int, bool> m_colmap;
+
+  //  bool m_ready;
+  //  pthread_mutex_t m_ready_lock;
+
+  //  virtual void parallel_load()=0;
+  //  virtual void parallel_load() = 0;
+  void *serialize(long *len); // create a protobuf instance and return serialized bytes
+};
+
+class dshardrm_map:public dshardctx{
+public:
+  dshardrm_map(dshardctx *shardinfo, std::set<int> &rowset, std::set<int> &colset):dshardctx(shardinfo, rowset, colset){}
+  dshardrm_map(dshardctx *shardinfo, std::map<int, bool> &rowmap, std::map<int, bool> &colmap):dshardctx(shardinfo, rowmap, colmap), matrix(m_maxrow, m_maxcol){}
+  rowmajor_map matrix; // rmspt  row mapped sparse type
+  void parallel_load(void);
+};
+
+class dshardrm_vec:public dshardctx{
+public:
+  dshardrm_vec(dshardctx *shardinfo, std::set<int> &rowset, std::set<int> &colset):dshardctx(shardinfo, rowset, colset){}
+  dshardrm_vec(dshardctx *shardinfo, std::map<int, bool> &rowmap, std::map<int, bool> &colmap):dshardctx(shardinfo, rowmap, colmap), matrix(m_maxrow, m_maxcol){}
+  rowmajor_vec matrix; // rmspt  row mapped sparse type
+  void parallel_load(void);
+};
+
+template <typename T1>
+class udshard:public dshardctx{
+public:
+  udshard(dshardctx *shardinfo, std::set<int> &rowset, std::set<int> &colset):dshardctx(shardinfo, rowset, colset){}
+  udshard(dshardctx *shardinfo, std::map<int, bool> &rowmap, std::map<int, bool> &colmap):dshardctx(shardinfo, rowmap, colmap), matrix(m_maxrow, m_maxcol){}
+  T1 matrix; // rmspt  row mapped sparse type
+  void parallel_load(void);
+};

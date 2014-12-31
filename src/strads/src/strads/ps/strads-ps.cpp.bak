@@ -1,0 +1,238 @@
+#include <strads/include/common.hpp>
+#include <strads/netdriver/zmq/zmq-common.hpp>
+#include <strads/netdriver/comm.hpp>
+#include <strads/ps/strads-ps.hpp>
+#include <mpi.h>
+#include <zmq.hpp>
+#include <string>
+
+using namespace std;
+
+void ps_put_get_async_ll(sharedctx *ctx, void *buf, int len, int serverid){
+  pspacket *packet = (pspacket *)calloc(sizeof(pspacket) + len, 1);
+  void *ubuf = (void *)((uintptr_t)(packet) + sizeof(pspacket));
+  assert((uintptr_t)ubuf % sizeof(long) == 0);
+  packet->ubuf = ubuf;
+  memcpy(ubuf, buf, len);
+  packet->len = sizeof(pspacket) + len;
+  packet->src = ctx->rank;
+  packet->cbtype = cb_putgetasync;  // don't forget this 
+  auto ps = ctx->ps_sendportmap[serverid];
+  _ringport *sport = ps;
+  context *send_ctx = sport->ctx;
+  send_ctx->push_ps_entry_outq((void *)packet, sizeof(pspacket) + len);
+}
+
+void ps_put_sync_ll(sharedctx *ctx, void *buf, int len, int serverid){
+  pthread_cond_t wakeup_signal = PTHREAD_COND_INITIALIZER;
+  pthread_mutex_t dummy_lock = PTHREAD_MUTEX_INITIALIZER;    
+  int rlen;
+  pspacket *packet = (pspacket *)calloc(sizeof(pspacket) + len, 1);
+  void *ubuf = (void *)((uintptr_t)(packet) + sizeof(pspacket));
+  assert((uintptr_t)ubuf % sizeof(long) == 0);
+  packet->ubuf = ubuf;
+  memcpy(ubuf, buf, len);
+  packet->len = sizeof(pspacket) + len;
+  packet->src = ctx->rank;
+  packet->cbtype = cb_putsync;  // don't forget this 
+  packet->putsync_signal = &wakeup_signal;
+  packet->slen = &rlen;
+  auto ps = ctx->ps_sendportmap[serverid];
+  _ringport *sport = ps;
+  context *send_ctx = sport->ctx;
+  send_ctx->push_ps_entry_outq((void *)packet, sizeof(pspacket) + len);
+  pthread_mutex_lock(&dummy_lock);
+  int rc = pthread_cond_wait(&wakeup_signal, &dummy_lock);
+  checkResults("pthread cond wait signal failed ", rc);
+}
+
+void* ps_get_sync_ll(sharedctx *ctx, void *buf, int len, int serverid){
+
+  pthread_cond_t wakeup_signal = PTHREAD_COND_INITIALIZER;
+  pthread_mutex_t dummy_lock = PTHREAD_MUTEX_INITIALIZER;    
+  void *retbuf;
+  int rlen;
+  pspacket *packet = (pspacket *)calloc(sizeof(pspacket) + len, 1);
+  void *ubuf = (void *)((uintptr_t)(packet) + sizeof(pspacket));
+  assert((uintptr_t)ubuf % sizeof(long) == 0);
+  packet->ubuf = ubuf;
+  memcpy(ubuf, buf, len);
+  packet->len = sizeof(pspacket) + len;
+  packet->src = ctx->rank;
+  packet->cbtype = cb_getsync;  // don't forget this 
+  packet->getsync_signal = &wakeup_signal;
+  packet->getsync_buf = &retbuf;
+  packet->rlen = &rlen;
+  auto ps = ctx->ps_sendportmap[serverid];
+  _ringport *sport = ps;
+  context *send_ctx = sport->ctx;
+  send_ctx->push_ps_entry_outq((void *)packet, sizeof(pspacket) + len);
+  pthread_mutex_lock(&dummy_lock);
+  strads_msg(ERR, "[Client ] ps GET sync ll sleep (%p) \n", &wakeup_signal);
+  int rc = pthread_cond_wait(&wakeup_signal, &dummy_lock); // sleep until row arrive from the ps server 
+  checkResults("pthread cond wait signal failed ", rc);
+  strads_msg(ERR, "[Client ] ps GET sync ll wake up and finish len (%d) \n", len);
+  return retbuf;
+}
+
+void ps_put_get_async_callback_ll(pspacket *packet, int plen, sharedctx *ctx){
+  assert(packet->cbtype == cb_putgetasync);
+  void *ubuf = packet->ubuf;              // user buffer 
+  //  int ulen = plen - sizeof(pspacket); // user packet size  
+  assert(ctx->ps_callback_func != NULL); 
+  // at this point, user callback function should be registered via ctx->register_ps_callback_func 
+  (*ctx->ps_callback_func)((void *)ubuf);                                                                                 
+  free((void *)packet);
+}
+
+void *ps_client_recvthread(void *arg){ // receive 
+  psbgthreadctx *bctx= (psbgthreadctx *)arg; 
+  sharedctx *ctx = bctx->parentctx;
+  _ringport **rport = (_ringport **)calloc(sizeof(_ringport *), ctx->m_sched_machines);
+  context **recvctx = (context **)calloc(sizeof(context *), ctx->m_sched_machines);
+  for(int i=0; i < ctx->m_worker_machines; i++){
+    auto pr = ctx->ps_recvportmap[i];
+    rport[i] = pr;
+    recvctx[i] = rport[i]->ctx;
+  }
+  int clock = 0 ;
+  while(1){
+    void *msg = NULL;
+    int len =-1;
+    msg = recvctx[clock]->pull_ps_entry_inq(&len);    
+    if(msg != NULL){
+      pspacket *pkt = (pspacket *)msg;
+      if(pkt->cbtype == cb_putgetasync){
+	ps_put_get_async_callback_ll(pkt, len, ctx); 
+	//recvctx[clock]->release_buffer(msg); don't do this 
+	// call call back function. BUT this should be done another bg thread update thread.      
+      }else if(pkt->cbtype == cb_putsync){	
+	pthread_cond_t *wakeup_signal = pkt->putsync_signal;
+	*(pkt->slen) = len;
+	strads_msg(ERR, "[ps client ] Wake Up blocked thread (%p) \n", wakeup_signal); 
+	int rc = pthread_cond_signal(wakeup_signal);
+	checkResults("pthread cond wait up signal ", rc);       
+	recvctx[clock]->release_buffer(msg); //for sync_put 
+      }else if(pkt->cbtype == cb_getsync){
+	//	_parse_rawpacket(ctx, (void *)pkt);
+	pthread_cond_t *wakeup_signal = pkt->getsync_signal;
+	*(pkt->getsync_buf) = (void *)pkt;
+	*(pkt->rlen) = len;
+	strads_msg(ERR, "[ps client ] Wake Up blocked thread (%p) \n", wakeup_signal); 
+	int rc = pthread_cond_signal(wakeup_signal);
+	checkResults("pthread cond wait up signal ", rc);       
+	//recvctx[clock]->release_buffer(msg); don't do this 
+      }else{
+	assert(0);
+      }
+      // PARSE pkt 
+      // case call back for sync_put
+      // case call back for sync_get   
+      // case call back for async put_and_get_async 
+      // recv_ctx->release_buffer(msg); for sync_put 
+    }
+    clock++;
+    clock = clock % ctx->m_worker_machines;
+  }
+}
+
+
+void *ps_server_recvthread(void *arg){ // receive 
+  psbgthreadctx *bctx= (psbgthreadctx *)arg;   
+  sharedctx *ctx = bctx->parentctx;
+  _ringport **rport = (_ringport **)calloc(sizeof(_ringport *), ctx->m_worker_machines);
+  context **recvctx = (context **)calloc(sizeof(context *), ctx->m_worker_machines);
+  _ringport **sport = (_ringport **)calloc(sizeof(_ringport *), ctx->m_worker_machines);
+  context **sendctx = (context **)calloc(sizeof(context *), ctx->m_worker_machines);
+  int received =0;
+  for(int i=0; i < ctx->m_worker_machines; i++){
+    auto pr = ctx->ps_recvportmap[i];
+    rport[i] = pr;
+    recvctx[i] = rport[i]->ctx;
+    auto ps = ctx->ps_sendportmap[i];
+    sport[i] = ps;
+    sendctx[i] = sport[i]->ctx;
+  }
+  int clock=0;
+  while(1){
+    void *msg = NULL;
+    int len=-1;
+    msg = recvctx[clock]->pull_ps_entry_inq(&len);
+    if(msg != NULL){
+      pspacket *pkt = (pspacket *)msg;
+      int src = pkt->src;
+      assert(clock == src);
+      strads_msg(ERR, "[PS server  serverid : %d]  process a packet from machine %d\n",
+		 (ctx->rank - ctx->m_sched_machines), pkt->src);
+      pkt->src = ctx->rank; // not server id ,, machine rank                      
+      sendctx[clock]->push_ps_entry_outq((void *)msg, len);
+      // TODO REplace send with helper thread and send thread 
+    }
+    clock ++ ;
+    clock = clock % ctx->m_worker_machines;
+  }
+}
+
+
+
+
+#if 0 
+void ll_parse_rawpacket(void *ret){
+  void *ubuf = (void *)((uintptr_t)(ret) + sizeof(pspacket));
+  assert((uintptr_t)ubuf % sizeof(long) == 0);
+  medpacket *upacket = (medpacket *)ubuf;
+  strads_msg(ERR, "DEBUG] GET SYNC GET BACK  upacket->wid (%d) \n",
+	     upacket->wid);
+}
+void _parse_rawpacket(sharedctx *ctx, void *ret){
+  void *ubuf = (void *)((uintptr_t)(ret) + sizeof(pspacket));
+  assert((uintptr_t)ubuf % sizeof(long) == 0);
+  medpacket *upacket = (medpacket *)ubuf;
+  strads_msg(ERR, "DEBUG [worker %d] GET SYNC GET BACK  upacket->wid (%d) \n", 
+	     ctx->rank, upacket->wid);
+}
+void server_parse_rawpacket(void *ret){
+  void *ubuf = (void *)((uintptr_t)(ret) + sizeof(pspacket));
+  assert((uintptr_t)ubuf % sizeof(long) == 0);
+  medpacket *upacket = (medpacket *)ubuf;
+  strads_msg(ERR, "DEBUG SERVER ] GET SYNC GET BACK  upacket->wid (%d) \n",
+	     upacket->wid);
+}
+void *ps_server_recvthread_test(void *arg){ // receive // test purpose.. reflect received  
+  psbgthreadctx *bctx= (psbgthreadctx *)arg;   
+  sharedctx *ctx = bctx->parentctx;
+  _ringport **rport = (_ringport **)calloc(sizeof(_ringport *), ctx->m_worker_machines);
+  context **recvctx = (context **)calloc(sizeof(context *), ctx->m_worker_machines);
+  _ringport **sport = (_ringport **)calloc(sizeof(_ringport *), ctx->m_worker_machines);
+  context **sendctx = (context **)calloc(sizeof(context *), ctx->m_worker_machines);
+  int received =0;
+  for(int i=0; i < ctx->m_worker_machines; i++){
+    auto pr = ctx->ps_recvportmap[i];
+    rport[i] = pr;
+    recvctx[i] = rport[i]->ctx;
+    auto ps = ctx->ps_sendportmap[i];
+    sport[i] = ps;
+    sendctx[i] = sport[i]->ctx;
+  }
+  int clock=0;
+  while(1){
+    void *msg = NULL;
+    int len=-1;
+    msg = recvctx[clock]->pull_ps_entry_inq(&len);
+    if(msg != NULL){
+      pspacket *pkt = (pspacket *)msg;
+      int src = pkt->src;
+      assert(clock == src);
+      strads_msg(ERR, "[PS server  serverid : %d]  process a packet from machine %d\n",
+		 (ctx->rank - ctx->m_sched_machines), pkt->src);
+      pkt->src = ctx->rank; // not server id ,, machine rank                      
+      sendctx[clock]->push_ps_entry_outq((void *)msg, len);
+      // TODO REplace send with helper thread and send thread 
+    }
+    clock ++ ;
+    clock = clock % ctx->m_worker_machines;
+  }
+}
+
+
+#endif 

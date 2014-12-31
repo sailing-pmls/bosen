@@ -1,0 +1,37 @@
+package stradslda;
+
+message initinfo {
+  required int32 tokencnt = 1;
+  required int32 docnt = 2;
+  required int32 wordmax = 3;
+}
+
+message singleint {
+  required int32 ivalue = 1;
+}
+
+message singlebucket {
+  repeated int32 wid = 1 [packed=true]; 
+}
+
+message topicrow {
+  optional int32 wordid = 1;
+  repeated int32 tid = 2 [packed=true]; 
+  repeated int32 assigned = 3 [packed=true]; 
+}
+
+message worker2coord {
+  optional int32 type = 1;
+  optional int32 ringsrc =2;
+  optional int32 ringdst =3;
+  repeated initinfo init = 4;
+  repeated singleint singlei = 5;
+  repeated singlebucket buckets = 6;
+  repeated topicrow trow = 7;
+  repeated int32 summary=8;
+
+  optional double docll=9;
+  optional double moll1=10;
+  optional double moll2=11;
+  optional int32  nzwt =12;
+}

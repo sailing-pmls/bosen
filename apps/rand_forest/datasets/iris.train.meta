@@ -1,0 +1,7 @@
+num_data: 120
+num_train_this_partition: 120
+feature_dim: 4
+num_labels: 3
+format: libsvm
+feature_one_based: 0
+label_one_based: 0

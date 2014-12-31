@@ -1,0 +1,41 @@
+# Ignore build paths
+bin/
+lib/
+third_party/bin
+third_party/include
+third_party/src
+third_party/share
+third_party/lib
+
+external_testbed/third_party/gflags-2.0/
+external_testbed/third_party/glog-0.3.3/
+external_testbed/third_party/libunwind-1.1/
+external_testbed/third_party/zeromq-2.2.0/
+external_testbed/third_party/boost_1_54_0/
+external_testbed/third_party/tbb42/
+
+
+# Default ignore files for C++ project. See
+# https://github.com/github/gitignore/blob/master/C%2B%2B.gitignore
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# vi
+tags
+*.tags
+*.swp
+
+# osx
+.DS_Store

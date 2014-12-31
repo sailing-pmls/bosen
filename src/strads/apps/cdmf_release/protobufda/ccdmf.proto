@@ -1,0 +1,42 @@
+package stradsccdmf;
+
+message initinfo {
+  required int32 tokencnt = 1;
+  required int32 docnt = 2;
+  required int32 wordmax = 3;
+}
+
+message singleint {
+  required int32 ivalue = 1;
+}
+
+message singlebucket {
+  repeated int32 wid = 1 [packed=true]; 
+}
+
+message topicrow {
+  optional int32 wordid = 1;
+  repeated int32 tid = 2 [packed=true]; 
+  repeated int32 assigned = 3 [packed=true]; 
+}
+
+message controlmsg {
+  enum msgtype {
+    BUCKET=1;
+    EXITRING=2;
+    UPDATE=3;
+    OBJSYNC=4;
+    UNKNOWN=5;
+  }
+
+  optional msgtype type = 1 [default = UNKNOWN];
+  optional int32 ringsrc =2;
+  optional int32 ringdst =3;
+  optional int32 rows=4;
+  optional int32 cols=5;
+  repeated initinfo init=6;
+  repeated singlebucket buckets=7; // row partitioning informatoin N buckets (=N partitions) 
+  	   			      // each bucket contain row indexces assigned to a part 
+  optional double partialobj=8;  
+
+}

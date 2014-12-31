@@ -1,0 +1,17 @@
+package stradsds;
+
+enum matrix_type {
+     cm_map=0;
+     cm_vec=1;
+     rm_map=2;
+     rm_vec=3;
+     dense2d=4;
+}
+
+message dshardctxmsg {
+	required string		fn=1;
+	required string 	alias=2;
+	required matrix_type 	mtype=3;
+	required uint64   	m_maxrow=4;
+	required uint64   	m_maxcol=5;
+}
