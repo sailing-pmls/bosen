@@ -41,17 +41,6 @@ private:\
 // is executed we will see a fatal log.
 #define NOT_IMPLEMENTED LOG(FATAL) << "Not Implemented Yet"
 
-/* TODO: remove this
-// Petuum Parameters
-DECLARE_string(hostfile);
-DECLARE_int32(num_clients);
-DECLARE_int32(num_app_threads);
-DECLARE_int32(client_id);
-DECLARE_string(consistency_model);
-DECLARE_string(stats_path);
-DECLARE_int32(num_comm_channels_per_client);
-DECLARE_int32(staleness);
-*/
 namespace caffe {
 
 // We will use the boost shared_ptr instead of the new C++11 one mainly
@@ -129,7 +118,6 @@ class Caffe {
   // Returns the mode: running on CPU or GPU.
   inline static Brew mode() { return Get().mode_; }
   // Returns the phase: TRAIN or TEST.
-  // hzt-phases
   inline static Phase phase(const int thread_id) { 
     CHECK(Get().phases_ != NULL);
     return Get().phases_[thread_id]; 
@@ -140,7 +128,6 @@ class Caffe {
   // freed in a non-pinned way, which may cause problems - I haven't verified
   // it personally but better to note it here in the header file.
   inline static void set_mode(Brew mode) { Get().mode_ = mode; }
-  // hzt-phases: Initializes the phases.
   inline static void initialize_phases(const int num_threads) { 
     Get().phases_ = new Phase[num_threads]; 
     for (int tidx = 0; tidx < num_threads; ++tidx) {
@@ -148,7 +135,6 @@ class Caffe {
     }
   }
   // Sets the phase.
-  // hzt-phases
   inline static void set_phase(Phase phase, const int thread_id) {
     CHECK(Get().phases_ != NULL);
     Get().phases_[thread_id] = phase; 

@@ -68,10 +68,11 @@ class ConstantFiller : public Filler<Dtype> {
       petuum::UpdateBatch<Dtype> update_batch(global_table_row_capacity);
       for (int i = 0; i < global_table_row_capacity; ++i) {
         update_batch.UpdateSet(i, i, value);
-        if (++update_idx >= count) { break; }
+        ++update_idx;
+        if (update_idx >= count) { break; }
       }
       blob->table()->BatchInc(r, update_batch);
-      if (++update_idx >= count) { break; }
+      if (update_idx >= count) { break; }
     }
     CHECK_EQ(this->filler_param_.sparse(), -1)
          << "Sparsity not supported by this Filler.";
@@ -119,10 +120,11 @@ class UniformFiller : public Filler<Dtype> {
       petuum::UpdateBatch<Dtype> update_batch(global_table_row_capacity);
       for (int i = 0; i < global_table_row_capacity; ++i) {
         update_batch.UpdateSet(i, i, rn[update_idx]);
-        if (++update_idx >= count) { break; }
+        ++update_idx;
+        if (update_idx >= count) { break; }
       }
       blob->table()->BatchInc(r, update_batch);
-      if (++update_idx >= count) { break; }
+      if (update_idx >= count) { break; }
     }
 
     delete rn;
@@ -164,10 +166,11 @@ class GaussianFiller : public Filler<Dtype> {
       petuum::UpdateBatch<Dtype> update_batch(global_table_row_capacity);
       for (int i = 0; i < global_table_row_capacity; ++i) {
         update_batch.UpdateSet(i, i, rn[update_idx]);
-        if (++update_idx >= count) { break; }
+        ++update_idx;
+        if (update_idx >= count) { break; }
       }
       blob->table()->BatchInc(r, update_batch);
-      if (++update_idx >= count) { break; }
+      if (update_idx >= count) { break; }
     }
 
     delete rn;
@@ -240,10 +243,11 @@ class PositiveUnitballFiller : public Filler<Dtype> {
       petuum::UpdateBatch<Dtype> update_batch(global_table_row_capacity);
       for (int i = 0; i < global_table_row_capacity; ++i) {
         update_batch.UpdateSet(i, i, rn[update_idx]);
-        if (++update_idx >= count) { break; }
+        ++update_idx;
+        if (update_idx >= count) { break; }
       }
       blob->table()->BatchInc(r, update_batch);
-      if (++update_idx >= count) { break; }
+      if (update_idx >= count) { break; }
     }
 
     delete rn;
@@ -329,10 +333,11 @@ class XavierFiller : public Filler<Dtype> {
       petuum::UpdateBatch<Dtype> update_batch(global_table_row_capacity);
       for (int i = 0; i < global_table_row_capacity; ++i) {
         update_batch.UpdateSet(i, i, rn[update_idx]);
-        if (++update_idx >= count) { break; }
+        ++update_idx;
+        if (update_idx >= count) { break; }
       }
       blob->table()->BatchInc(r, update_batch);
-      if (++update_idx >= count) { break; }
+      if (update_idx >= count) { break; }
     }
 
     delete rn;

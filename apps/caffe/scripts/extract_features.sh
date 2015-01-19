@@ -42,8 +42,6 @@ unique_host_list=`cat $host_file | awk '{ print $2 }' | uniq`
 num_unique_hosts=`cat $host_file | awk '{ print $2 }' | uniq | wc -l`
 
 output_dir="${output_path}/feature_extraction.M${num_unique_hosts}.T${num_app_threads}"
-rm -rf ${output_dir}
-mkdir -p ${output_dir}
 log_dir=${output_dir}/logs
 
 # Kill previous instances of this program
@@ -60,7 +58,8 @@ for ip in $unique_host_list; do
   echo Running client $client_id on $ip
   log_path=${log_dir}.${client_id}
 
-cmd="rm -rf ${log_path}; mkdir -p ${log_path}; \
+  cmd="mkdir -p ${output_dir}; \
+    mkdir -p ${log_path}; \
     GLOG_logtostderr=false \
     GLOG_stderrthreshold=0 \
     GLOG_log_dir=$log_path \
