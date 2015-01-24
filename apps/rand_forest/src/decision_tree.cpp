@@ -59,8 +59,8 @@ TreeNode* DecisionTree::RecursiveBuild(int32_t depth,
     // Creating root.
     curr_node = new TreeNode();
 
-    // Subsample data if we have more than num_data_subsample_.
-    if (available_data_idx.size() > num_data_subsample_) {
+    // Subsample data if we have more than num_data_subsample_ and num_data_subsample_ needs to be positive integer.
+    if (num_data_subsample_ > 0 && available_data_idx.size() > num_data_subsample_) {
       std::vector<int32_t> available_data_idx_copy = available_data_idx;
       std::shuffle(available_data_idx_copy.begin(),
           available_data_idx_copy.end(), *rng_engine_);
@@ -76,10 +76,10 @@ TreeNode* DecisionTree::RecursiveBuild(int32_t depth,
     return curr_node;                                                                                                                                      
   }
 
-  // Subsample features if we have more than num_features_subsample_.
+  // Subsample features if we have more than num_features_subsample_ and num_features_subsample_ needs to be positive integer.
   std::vector<int32_t> sub_feature_ids;    
   std::vector<int32_t> available_feature_ids_copy = available_feature_ids;
-  if (available_feature_ids.size() > num_features_subsample_) {    
+  if (num_features_subsample_ > 0 && available_feature_ids.size() > num_features_subsample_) {    
     std::shuffle(available_feature_ids_copy.begin(),
         available_feature_ids_copy.end(), *rng_engine_);
     sub_feature_ids = std::vector<int32_t>(available_feature_ids_copy.begin(),
