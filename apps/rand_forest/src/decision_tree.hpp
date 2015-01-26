@@ -10,6 +10,8 @@
 #include <random>
 #include <memory>
 #include "split_finder.hpp"
+#include <string>
+#include <sstream>
 
 namespace tree {
 
@@ -37,13 +39,22 @@ struct DecisionTreeConfig {
 
 class DecisionTree {
 public:
-  DecisionTree() : features_(0), labels_(0) { }
+  DecisionTree() : features_(0), labels_(0) { };
+  
+  // Construct a tree from string of serialized tree
+  DecisionTree(std::string input);
 
   // Construct the decision tree.
   void Init(const DecisionTreeConfig& config);
 
   // Predict x's label. Will fail if Build() isn't called yet.
   int32_t Predict(const petuum::ml::AbstractFeature<float>& x) const;
+
+  // Get serialized tree as a string
+  std::string GetSerializedTree();
+
+  // Deserialize the tree from string
+  void Deserialize(TreeNode *p, std::istringstream &in);
 
 private:    // private methods.
   // Internal build method.
@@ -71,6 +82,9 @@ private:    // private methods.
 
   // True if all labels in data_idx are the same.
   bool AllSameLabels(const std::vector<int32_t>& data_idx) const;
+
+  // Serialize the tree with pre-order traversal
+  void Serialize(TreeNode *p, std::string &out);
 
 private:
   // Underlying data (features and labels).

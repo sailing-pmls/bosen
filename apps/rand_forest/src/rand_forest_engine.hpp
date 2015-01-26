@@ -19,7 +19,7 @@ class RandForestEngine {
 public:
   RandForestEngine();
 
-  void ReadData();
+  void ReadData(std::string type);
 
   int GetNumLabels() const {
     return num_labels_;
@@ -33,12 +33,17 @@ public:
   void Start();
 
 private:  // private methods
+
+  // Set meta reader for ReadData()
+  void SetReader();
+
+  // Evalute error on each client
   static float EvaluateErrorLocal(const RandForest& rand_forest,
       const std::vector<petuum::ml::AbstractFeature<float>*>& features,
      const std::vector<int32_t>& labels);
 
   // Register label votes on test data on test_vote_table_.
-  void VoteOnTestData(const RandForest& rand_forest);
+  float VoteOnTestData(const RandForest& rand_forest);
 
   // Only head thread should call this to collect the votes and compute test
   // error.
@@ -56,6 +61,13 @@ private:
   std::string read_format_; // for both train and test.
   bool feature_one_based_;  // feature starts from 1 (train and test).
   bool label_one_based_;    // label starts from 1 (train and test).
+  bool save_pred_; // whether to save prediction on test set to file
+  std::string pred_file_; // path of prediction output file
+  bool save_trees_;  // whether to save trees to file
+  std::string output_file_;  // path of output file
+  bool load_trees_; // whether load trees from file
+                    // if set true, all variable above are ignored
+  std::string input_file_;
 
   // Each feature is a float array of length num_units_each_layer_[0].
   // DNNEngine takes ownership of these pointers.

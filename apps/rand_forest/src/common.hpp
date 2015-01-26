@@ -25,3 +25,11 @@ DECLARE_int32(num_trees);
 DECLARE_int32(max_depth);
 DECLARE_int32(num_data_subsample);
 DECLARE_int32(num_features_subsample);
+
+// Save and Load
+DECLARE_bool(save_pred);
+DECLARE_string(pred_file);
+DECLARE_bool(save_trees);
+DECLARE_string(output_file);
+DECLARE_bool(load_trees);
+DECLARE_string(input_file);

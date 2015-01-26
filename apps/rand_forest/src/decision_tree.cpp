@@ -12,6 +12,21 @@
 
 namespace tree {
 
+DecisionTree::DecisionTree(std::string input): features_(0), labels_(0),
+  num_data_(0), max_depth_(0), num_data_subsample_(0),
+  num_features_subsample_(0), num_labels_(0), feature_dim_(0) {
+
+  std::random_device rd;
+  rng_engine_.reset(new std::mt19937(rd()));  
+
+  TreeNode *root = new TreeNode();
+  std::istringstream istr (input);
+  Deserialize(root, istr);
+
+  root_.reset(root);
+
+}
+
 void DecisionTree::Init(const DecisionTreeConfig& config) {
   CHECK(!root_) << "Tree is already built.";
   features_ = config.features;
@@ -48,6 +63,19 @@ int32_t DecisionTree::Predict(
   return root_->Predict(x);
 }
 
+std::string DecisionTree::GetSerializedTree(){
+  // Serialize the root
+  std::string stree;
+  if (root_->GetFeatureId() != -1) {
+    stree = std::to_string(root_->GetFeatureId()) + ":" + std::to_string(root_->GetSplitVal()) + " ";
+    Serialize(root_->GetLeftChild(), stree);
+    Serialize(root_->GetRightChild(), stree);     
+  } else {
+    stree = std::to_string(root_->GetFeatureId()) + ":" + std::to_string(root_->GetLeafVal()) + " ";
+  }
+  return stree;
+}
+
 // ============== Private Methods =============
 
 TreeNode* DecisionTree::RecursiveBuild(int32_t depth,
@@ -70,7 +98,7 @@ TreeNode* DecisionTree::RecursiveBuild(int32_t depth,
   }
 
   // Base case.
-  if (depth == max_depth_ - 1 || available_feature_ids.size() == 1 ||
+  if (depth == max_depth_ - 1 || available_feature_ids.size() == 0 ||
       AllSameLabels(available_data_idx)) {
     curr_node->SetLeafVal(ComputeLeafVal(available_data_idx));
     return curr_node;                                                                                                                                      
@@ -196,5 +224,44 @@ bool DecisionTree::AllSameLabels(const std::vector<int32_t>& data_idx) const {
   }
   return true;
 }
+
+void DecisionTree::Serialize(TreeNode *p, std::string &out) {
+  if (!p) {
+    out += "# ";
+  } else {
+    if (p->GetFeatureId() != -1) {
+      std::string str_node = std::to_string(p->GetFeatureId()) + ":" + std::to_string(p->GetSplitVal()) + " ";
+      out += str_node;
+      Serialize(p->GetLeftChild(), out);
+      Serialize(p->GetRightChild(), out);     
+    } else {
+      std::string str_node = std::to_string(p->GetFeatureId()) + ":" + std::to_string(p->GetLeafVal()) + " ";
+      out += str_node;
+    }
+  }
+}
+
+void DecisionTree::Deserialize(TreeNode *p, std::istringstream &in) {
+  if (in.eof()) {
+    return;
+  }
+
+  std::string token;
+  in >> token;
+  std::string delimiter = ":";
+
+  int32_t feature_id = std::stoi(token.substr(0, token.find(delimiter)));
+  if (feature_id == -1) {
+    int32_t leaf_val = std::stoi(token.substr(token.find(delimiter) + 1));
+    p->SetLeafVal(leaf_val);
+    return;
+  } else {
+    float split_val = std::stof(token.substr(token.find(delimiter) + 1));
+    p->Split(feature_id, split_val);
+    Deserialize(p->GetLeftChild(), in);
+    Deserialize(p->GetRightChild(), in);
+  }
+}
+
 
 }  // namespace tree

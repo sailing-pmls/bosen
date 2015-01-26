@@ -26,12 +26,24 @@ public:
     feature_id_ = feature_id;
   }
 
-  TreeNode* GetLeftChild() {
+  TreeNode* GetLeftChild() const {
     return left_child_.get();
   }
 
-  TreeNode* GetRightChild() {
+  TreeNode* GetRightChild() const {
     return right_child_.get();
+  }
+
+  int32_t GetFeatureId() const {
+    return feature_id_;
+  }
+
+  float GetSplitVal() const {
+    return split_val_;
+  }
+
+  int32_t GetLeafVal() const {
+    return leaf_val_;
   }
 
   // Declare this node is a leaf node.
@@ -40,6 +52,8 @@ public:
       << "I have children, can't be leaf node!";
     is_leaf_ = true;
     leaf_val_ = leaf_val;
+    feature_id_ = -1;
+    split_val_ = -1;
   }
 
   // Predict instance recusrively and return leaf node value.
