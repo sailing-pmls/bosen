@@ -92,7 +92,7 @@ TreeNode* DecisionTree::RecursiveBuild(int32_t depth,
   int32_t split_feature_id = 0;
   float split_feature_val = 0;
   int32_t split_feature_idx = FindSplit(sub_data_idx,
-      sub_feature_ids, &split_feature_id, &split_feature_val);
+      sub_feature_ids, &split_feature_id, &split_feature_val, curr_node);
   curr_node->Split(split_feature_id, split_feature_val);
 
   // Partition the data by split_feature_val.
@@ -126,7 +126,7 @@ TreeNode* DecisionTree::RecursiveBuild(int32_t depth,
 
 int32_t DecisionTree::FindSplit(const std::vector<int32_t>& sub_data_idx,
     const std::vector<int32_t>& sub_feature_ids,
-    int32_t* split_feature_id, float* split_feature_val) const {
+    int32_t* split_feature_id, float* split_feature_val, TreeNode* curr_node) const {
   int32_t split_feature_idx = 0;
   float best_gain_ratio = std::numeric_limits<float>::min();
 
@@ -150,6 +150,7 @@ int32_t DecisionTree::FindSplit(const std::vector<int32_t>& sub_data_idx,
 
   }
   *split_feature_id = sub_feature_ids[split_feature_idx];
+  curr_node->gain_ratio_ = best_gain_ratio;
   return split_feature_idx;
 }
 

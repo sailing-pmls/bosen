@@ -60,6 +60,8 @@ private:
   bool is_leaf_;
   int32_t leaf_val_;
 
+  float gain_ratio_; // gain_ratio_ when split this node 
+
   // We take ownership of children_.
   std::unique_ptr<TreeNode> left_child_;
   std::unique_ptr<TreeNode> right_child_;

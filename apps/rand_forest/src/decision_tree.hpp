@@ -57,7 +57,7 @@ private:    // private methods.
   // = *split_feature_id.
   int32_t FindSplit(const std::vector<int32_t>& sub_data_idx,
       const std::vector<int32_t>& sub_feature_ids,
-      int32_t* split_feature_id, float* split_feature_val) const;
+      int32_t* split_feature_id, float* split_feature_val, TreeNode* curr_node) const;
 
   // Partition 'data_idx' into left_partition (whose 'feature_id' feature
   // <= feature_val), and right_partition.
