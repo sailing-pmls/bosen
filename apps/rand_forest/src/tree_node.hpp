@@ -18,7 +18,7 @@ public:
 
   // This creates two children. Left child are instances <= split_val on
   // feature_id.
-  void Split(int32_t feature_id, float split_val, float gain_ratio) {
+  void Split(int32_t feature_id, float split_val, float gain_ratio = 0.0) {
     CHECK(!is_leaf_) << "Leaf node cannot be split";
     left_child_.reset(new TreeNode());
     right_child_.reset(new TreeNode());

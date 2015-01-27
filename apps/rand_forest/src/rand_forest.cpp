@@ -90,7 +90,7 @@ void RandForest::ComputeFeatureImportance(std::vector<float>& importance) const 
 
 	for (int i = 0; i < num_trees_; ++i) {
 		std::vector<float> importance_sub;
-		trees_[i].ComputeFeatureImportance(importance_sub);
+		trees_[i]->ComputeFeatureImportance(importance_sub);
 		for (int j = 0; j < feature_dim; j++) {
 			importance[j] += importance_sub[j];
 		}

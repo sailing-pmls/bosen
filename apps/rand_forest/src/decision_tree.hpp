@@ -51,16 +51,13 @@ public:
   // Predict x's label. Will fail if Build() isn't called yet.
   int32_t Predict(const petuum::ml::AbstractFeature<float>& x) const;
 
-<<<<<<< HEAD
   // Compute feature importance after building the tree.
   void ComputeFeatureImportance(std::vector<float>& importance) const;
-=======
   // Get serialized tree as a string
   std::string GetSerializedTree();
 
   // Deserialize the tree from string
   void Deserialize(TreeNode *p, std::istringstream &in);
->>>>>>> 42e222c3e6f162c303642374723f2c454be74999
 
 private:    // private methods.
   // Internal build method.
