@@ -43,6 +43,20 @@ DEFINE_int32(num_data_subsample, 100, "# data used in determining each split");
 DEFINE_int32(num_features_subsample, 3, "# of randomly selected features to "
     "consider for a split.");
 
+// Save and Load
+DEFINE_bool(save_pred, false, "Prediction of test set will be saved "
+    "if true.");
+DEFINE_string(pred_file, "", "Prediction of test set will be save to "
+    "this file if FLAGS_save_pred == true.");
+DEFINE_bool(save_trees, false, "Save trees to file if true.");
+DEFINE_string(output_file, "", " All trained trees written to "
+    "output file if FLAGS_save_trees == true.");
+DEFINE_bool(load_trees, false, "The app will not do the training and "
+    "read trained trees from input file if true");
+DEFINE_string(input_file, "", "Only one thread read from input file "
+    "and perform test if FLAGS_load_trees == true.");
+
+
 // Misc
 DEFINE_int32(num_tables, 2, "num PS tables.");
 DEFINE_int32(test_vote_table_id, 1, "Vote table for test data.");
@@ -64,7 +78,17 @@ int main(int argc, char *argv[]) {
     << " threads";
 
   tree::RandForestEngine rand_forest_engine;
-  rand_forest_engine.ReadData();
+
+  // If load trees from file, only read test file
+  if (FLAGS_load_trees) {
+    rand_forest_engine.ReadData("test");
+  } else{
+    rand_forest_engine.ReadData("train");
+    if (FLAGS_perform_test) {
+      rand_forest_engine.ReadData("test");
+    }
+  }
+
   int num_labels = rand_forest_engine.GetNumLabels();
   int num_test_data = rand_forest_engine.GetNumTestData();
   int feature_dim = rand_forest_engine.GetNumFeatureDim();

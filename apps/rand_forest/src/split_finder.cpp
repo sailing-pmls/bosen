@@ -23,6 +23,20 @@ void SplitFinder::AddInstance(float feature_val, int32_t label,
   entries_.push_back(new_entry);
 }
 
+void SplitFinder::AddInstanceDedup(float feature_val,
+    int32_t label, float weight) {
+  // To be optimized
+  for (auto iter = entries_.begin(); iter != entries_.end(); ++iter) {
+    if ((iter->feature_val == feature_val)
+        && (iter->label == label)) {
+      iter->weight += weight;
+      return;
+    }
+  }
+
+  // This is a new feature_val-label combo.
+  AddInstance(feature_val, label, weight);
+}
 
 float SplitFinder::FindSplitValue(float* gain_ratio) {
   SortEntries();
@@ -34,19 +48,28 @@ float SplitFinder::FindSplitValue(float* gain_ratio) {
   Normalize(&label_distribution);
   pre_split_entropy_ = ComputeEntropy(label_distribution);
 
-  // Find best split value
   float min_value = entries_.begin()->feature_val;
   float max_value = entries_.back().feature_val;
 
-  // Randomly generate a list of split value
+  // Find distinct feature values
+  std::vector<float> feature_value_dist;
+  feature_value_dist.push_back(min_value);
+  if (max_value > min_value) { 
+    for (int i = 1; i < entries_.size(); i++) {
+      if (entries_[i].feature_val > feature_value_dist.back()) {
+        feature_value_dist.push_back(entries_[i].feature_val);
+      }
+    }    
+  }
+
   std::random_device rd;
   std::mt19937 mt(rd());
   std::uniform_real_distribution<float> dist(min_value, max_value);
 
   float best_gain_ratio = std::numeric_limits<float>::min();
   float best_split_val = min_value;
-  for (int i = 0; i < sqrt(entries_.size()); ++i) {
-    // Find the split value with largest gain ratio
+  for (int i = 0; i < feature_value_dist.size(); ++i) {
+      // Randomly generate a split threshold
       float rand_split = dist(mt);
       float gain_ratio = ComputeGainRatio(rand_split);
 
