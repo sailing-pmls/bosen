@@ -18,12 +18,13 @@ public:
 
   // This creates two children. Left child are instances <= split_val on
   // feature_id.
-  void Split(int32_t feature_id, float split_val) {
+  void Split(int32_t feature_id, float split_val, float gain_ratio) {
     CHECK(!is_leaf_) << "Leaf node cannot be split";
     left_child_.reset(new TreeNode());
     right_child_.reset(new TreeNode());
     split_val_ = split_val;
     feature_id_ = feature_id;
+	gain_ratio_ = gain_ratio;
   }
 
   TreeNode* GetLeftChild() {
@@ -42,7 +43,7 @@ public:
     leaf_val_ = leaf_val;
   }
 
-  // Predict instance recusrively and return leaf node value.
+  // Predict instance recursively and return leaf node value.
   int32_t Predict(const petuum::ml::AbstractFeature<float>& x) const {
     if (is_leaf_) {
       return leaf_val_;
@@ -52,6 +53,17 @@ public:
       return left_child_->Predict(x);
     }
     return right_child_->Predict(x);
+  }
+
+  // Compute feature importance recursively
+  void ComputeFeatureImportance(std::vector<float>& importance) const {
+	if (is_leaf_) {
+		return ;
+	}
+
+	importance[feature_id_] += gain_ratio_;
+	left_child_->ComputeFeatureImportance(importance);
+	right_child_->ComputeFeatureImportance(importance);
   }
 
 private:

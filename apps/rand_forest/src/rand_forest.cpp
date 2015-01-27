@@ -38,4 +38,20 @@ int32_t RandForest::Predict(const petuum::ml::AbstractFeature<float>& x,
   return max_label;
 }
 
+void RandForest::ComputeFeatureImportance(std::vector<float>& importance) const {
+	int32_t feature_dim = tree_config_.feature_dim;
+
+	importance.reserve(feature_dim);
+	std::fill(importance.begin(), importance.end(), 0.0);
+
+	for (int i = 0; i < num_trees_; ++i) {
+		std::vector<float> importance_sub;
+		trees_[i].ComputeFeatureImportance(importance_sub);
+		for (int j = 0; j < feature_dim; j++) {
+			importance[j] += importance_sub[j];
+		}
+	}
+	Normalize(&importance);
+}
+
 }  // namespace tree

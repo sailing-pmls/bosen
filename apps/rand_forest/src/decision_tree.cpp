@@ -48,6 +48,16 @@ int32_t DecisionTree::Predict(
   return root_->Predict(x);
 }
 
+void DecisionTree::ComputeFeatureImportance(std::vector<float>& importance) const {
+	CHECK(root_) << "Cannot compute feature importance before Build() a tree.";
+
+	importance.reserve(feature_dim_);
+	std::fill(importance.begin(), importance.end(), 0.0);
+
+	root_->ComputeFeatureImportance(importance);
+	Normalize(&importance);
+}
+
 // ============== Private Methods =============
 
 TreeNode* DecisionTree::RecursiveBuild(int32_t depth,
@@ -91,9 +101,10 @@ TreeNode* DecisionTree::RecursiveBuild(int32_t depth,
   // Find a split.
   int32_t split_feature_id = 0;
   float split_feature_val = 0;
+  float gain_ratio_val = 0;
   int32_t split_feature_idx = FindSplit(sub_data_idx,
-      sub_feature_ids, &split_feature_id, &split_feature_val, curr_node);
-  curr_node->Split(split_feature_id, split_feature_val);
+      sub_feature_ids, &split_feature_id, &split_feature_val, &gain_ratio_val);
+  curr_node->Split(split_feature_id, split_feature_val, gain_ratio_val);
 
   // Partition the data by split_feature_val.
   std::vector<int32_t> left_partition;
@@ -126,7 +137,7 @@ TreeNode* DecisionTree::RecursiveBuild(int32_t depth,
 
 int32_t DecisionTree::FindSplit(const std::vector<int32_t>& sub_data_idx,
     const std::vector<int32_t>& sub_feature_ids,
-    int32_t* split_feature_id, float* split_feature_val, TreeNode* curr_node) const {
+    int32_t* split_feature_id, float* split_feature_val, float* gain_ratio_val) const {
   int32_t split_feature_idx = 0;
   float best_gain_ratio = std::numeric_limits<float>::min();
 
@@ -150,7 +161,7 @@ int32_t DecisionTree::FindSplit(const std::vector<int32_t>& sub_data_idx,
 
   }
   *split_feature_id = sub_feature_ids[split_feature_idx];
-  curr_node->gain_ratio_ = best_gain_ratio;
+  *gain_ratio_val = best_gain_ratio;
   return split_feature_idx;
 }
 

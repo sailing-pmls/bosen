@@ -8,6 +8,7 @@
 #include <ml/include/ml.hpp>
 #include <memory>
 #include "decision_tree.hpp"
+#include "utils.hpp"
 
 namespace tree {
 
@@ -24,6 +25,8 @@ public:
   // (votes->size() will be num_labels_).
   int32_t Predict(const petuum::ml::AbstractFeature<float>& x,
       std::vector<int32_t>* votes = 0) const;
+
+  void ComputeFeatureImportance(std::vector<float>& importance) const;
 
 private:
   int32_t num_trees_;

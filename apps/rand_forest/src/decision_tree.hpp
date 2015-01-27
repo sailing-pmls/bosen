@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <ml/include/ml.hpp>
 #include "tree_node.hpp"
+#include "utils.hpp"
 #include <random>
 #include <memory>
 #include "split_finder.hpp"
@@ -45,6 +46,9 @@ public:
   // Predict x's label. Will fail if Build() isn't called yet.
   int32_t Predict(const petuum::ml::AbstractFeature<float>& x) const;
 
+  // Compute feature importance after building the tree.
+  void ComputeFeatureImportance(std::vector<float>& importance) const;
+
 private:    // private methods.
   // Internal build method.
   TreeNode* RecursiveBuild(int32_t depth,
@@ -57,7 +61,7 @@ private:    // private methods.
   // = *split_feature_id.
   int32_t FindSplit(const std::vector<int32_t>& sub_data_idx,
       const std::vector<int32_t>& sub_feature_ids,
-      int32_t* split_feature_id, float* split_feature_val, TreeNode* curr_node) const;
+      int32_t* split_feature_id, float* split_feature_val, float* gain_ratio) const;
 
   // Partition 'data_idx' into left_partition (whose 'feature_id' feature
   // <= feature_val), and right_partition.
@@ -71,6 +75,7 @@ private:    // private methods.
 
   // True if all labels in data_idx are the same.
   bool AllSameLabels(const std::vector<int32_t>& data_idx) const;
+
 
 private:
   // Underlying data (features and labels).
@@ -89,6 +94,7 @@ private:
   int32_t num_features_subsample_;
   int32_t num_labels_;
   int32_t feature_dim_;
+
 };
 
 }  // namespace tree

@@ -4,6 +4,7 @@
 
 #pragma once
 #include <vector>
+#include <stack>
 
 namespace tree {
 
@@ -12,5 +13,50 @@ float ComputeEntropy(const std::vector<float> &dist);
 
 // Normalize
 void Normalize(std::vector<float>* count);
+
+// ArgSort
+template <typename T>
+void ArgSort(const std::vector<T>& arr, std::vector<int>& idx, int asc = 1) {
+	int size = arr.size(), from, to, u, v, tmp;
+	std::stack<int> m_stack;
+
+	idx.reserve(size);
+	for (int i = 0; i < size; i++) idx[i] = i;
+
+	if (asc >= 0) asc = 1;
+	else asc = -1;
+
+	m_stack.push(0);
+	m_stack.push(size);
+	while(!m_stack.empty()) {
+		to = m_stack.top();
+		m_stack.pop();
+		from = m_stack.top();
+		m_stack.pop();
+
+		if (to - from <= 1) continue;
+		u = from + 1;
+		v = to - 1;
+		while (u <= v) {
+			while (u <= v && asc*arr[idx[u]] <= asc*arr[idx[from]]) u++;
+			while (u <= v && asc*arr[idx[v]] >= asc*arr[idx[from]]) v--;
+			if (u <= v) {
+				tmp = idx[u];
+				idx[u] = idx[v];
+				idx[v] = tmp;
+			}
+		}
+		tmp = idx[from];
+		idx[from] = idx[v];
+		idx[v] = tmp;
+
+		// push left
+		m_stack.push(from);
+		m_stack.push(v);
+		// push right
+		m_stack.push(u);
+		m_stack.push(to);
+	}
+}
 
 }  // namespace tree

@@ -29,6 +29,10 @@ public:
     return num_test_data_;
   }
 
+  int GetNumFeatureDim() const {
+	  return feature_dim_;
+  }
+
   // Can be called concurrently.
   void Start();
 
@@ -43,6 +47,12 @@ private:  // private methods
   // Only head thread should call this to collect the votes and compute test
   // error.
   float ComputeTestError();
+
+  // Register local gain ratio on feature_importance_table_
+  void AccumulateGainRatio(const RandForest& rand_forest);
+
+  // Only head thread should call this to collect the gain ratio from all trees
+  void ComputeFeatureImportance(std::vector<float>& importance);
 
 private:
   // ============== Data Variables ==================
@@ -74,6 +84,7 @@ private:
 
   // ============ PS Tables ============
   petuum::Table<int> test_vote_table_;
+  petuum::Table<float> gain_ratio_table_;
 };
 
 }  // namespace tree

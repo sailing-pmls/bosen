@@ -92,6 +92,8 @@ void RandForestEngine::Start() {
   if (thread_id == 0) {
     test_vote_table_ =
       petuum::PSTableGroup::GetTableOrDie<int>(FLAGS_test_vote_table_id);
+	gain_ratio_table_ = 
+	  petuum::PSTableGroup::GetTableOrDie<float>(FLAGS_gain_ratio_table_id);
   }
   // Barrier to ensure test_vote_table_ is initialized.
   process_barrier_->wait();
@@ -112,6 +114,24 @@ void RandForestEngine::Start() {
     LOG(INFO) << "client " << FLAGS_client_id << " test error: "
       << test_error << " (evaluated on "
       << num_test_data_ << " test data)";
+  }
+
+  // Feature importance
+  if (FLAGS_compute_importance) {
+	AccumulateGainRatio(rand_forest);
+	petuum::PSTableGroup::GlobalBarrier();
+	if (FLAGS_client_id == 0 && thread_id == 0) {
+		int top_n = std::min(10, feature_dim_);
+		std::vector<float> importance;	
+		std::vector<int> idx;
+		ComputeFeatureImportance(importance);
+		ArgSort(importance, idx, -1);	
+		LOG(INFO) << "Feature Importance(Feature_id start from 0): ";
+		LOG(INFO) << "Order\tFeature_id\tImportance";
+		for (int i = 0; i < top_n; i++) {
+			LOG(INFO) << i+1 << ".\t" << "#" << idx[i] << "\t" << importance[idx[i]];
+		}
+	}
   }
 
   // Test error.
@@ -156,6 +176,14 @@ void RandForestEngine::VoteOnTestData(const RandForest& rand_forest) {
   }
 }
 
+void RandForestEngine::AccumulateGainRatio(const RandForest& rand_forest) {
+	std::vector<float> importance;
+	rand_forest.ComputeFeatureImportance(importance);
+	for (int i = 0; i < feature_dim_; i++) {
+		gain_ratio_table_.Inc(0, i, importance[i]);	
+	}
+}
+
 namespace {
 
 int SumVector(const std::vector<int> vec) {
@@ -194,6 +222,14 @@ float RandForestEngine::ComputeTestError() {
   }
   LOG(INFO) << "Test using " << num_trees << " trees.";
   return error / test_features_.size();
+}
+
+void RandForestEngine::ComputeFeatureImportance(std::vector<float>& importance) {
+	petuum::RowAccessor row_acc;
+	gain_ratio_table_.Get(0, &row_acc);
+	const auto& gain_ratio_row = row_acc.Get<petuum::DenseRow<float> >();
+	gain_ratio_row.CopyToVector(&importance);
+	Normalize(&importance);
 }
 
 }  // namespace tree
