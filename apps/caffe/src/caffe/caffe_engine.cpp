@@ -97,6 +97,9 @@ void CaffeEngine<Dtype>::InitPSForTrainNet(const int num_additional_tables) {
   net_state.MergeFrom(param_.train_state());
   net_param.mutable_state()->CopyFrom(net_state);
 
+  CHECK_GT(param_.display(), 0)
+      << "Set display > 0 in solver prototxt file.";
+
   // set as train net
   net_.reset(new Net<Dtype>(0, -1));
   // create ps tables for train net parameter blobs
@@ -104,8 +107,12 @@ void CaffeEngine<Dtype>::InitPSForTrainNet(const int num_additional_tables) {
                               &layer_blobs_global_idx_);
   // create ps table for train net outputs
   string train_net_output_name("train_net_outputs");
-  CreatePSTableForNetOutputs(net_, train_net_output_name, param_.display());
-  
+  if (param_.display()) {
+    int num_rows_train_net_outputs
+      = param_.max_iter() / param_.display() + 5;
+    CreatePSTableForNetOutputs(net_, train_net_output_name, param_.display(),
+        num_rows_train_net_outputs);
+  }
   // delete net_
   net_.reset();
 }
@@ -117,7 +124,8 @@ void CaffeEngine<Dtype>::InitPSForTestNets(const int num_test_net_instances) {
         << "test_state must be unspecified or specified once per test net.";
   }
   if (num_test_net_instances) {
-    CHECK_GT(param_.test_interval(), 0);
+    CHECK_GT(param_.test_interval(), 0)
+        << "Set test_interval > 0 in solver prototxt file.";
   }
   util::Context& context = util::Context::get_instance();
   context.test_dbs().resize(num_test_net_instances); 
@@ -156,7 +164,12 @@ void CaffeEngine<Dtype>::InitPSForTestNets(const int num_test_net_instances) {
     // create ps tables for test nets outputs  
     ostringstream test_net_output_name;
     test_net_output_name << "test_net_outputs_" << i;
-    CreatePSTableForNetOutputs(net_, test_net_output_name.str(), true);
+    if (param_.test_interval()) {
+      const int num_rows_test_net_outputs
+          = (param_.max_iter()) / param_.test_interval() + 5;
+      CreatePSTableForNetOutputs(net_, test_net_output_name.str(), true,
+          num_rows_test_net_outputs);
+    }
 
     // delete net_
     net_.reset();
@@ -165,7 +178,7 @@ void CaffeEngine<Dtype>::InitPSForTestNets(const int num_test_net_instances) {
 
 template <typename Dtype>
 void CaffeEngine<Dtype>::CreatePSTableForNetOutputs(
-    shared_ptr<Net<Dtype> > net, string name, bool display) {
+    shared_ptr<Net<Dtype> > net, string name, bool display, int num_rows) {
   CHECK(layer_blobs_global_idx_.find(name) == layer_blobs_global_idx_.end());
 
   util::Context& context = util::Context::get_instance();
@@ -177,7 +190,7 @@ void CaffeEngine<Dtype>::CreatePSTableForNetOutputs(
   table_config.table_info.oplog_dense_serialized 
       = oplog_dense_serialized;
   table_config.table_info.table_staleness = loss_table_staleness_;
-  table_config.process_cache_capacity = 1000;
+  table_config.process_cache_capacity = num_rows;
   table_config.oplog_capacity = table_config.process_cache_capacity;
   table_config.process_storage_type = petuum::BoundedDense;
   int count = 0; 

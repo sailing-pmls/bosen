@@ -34,7 +34,7 @@ class CaffeEngine {
 
  protected:
   void CreatePSTableForNetOutputs(shared_ptr<Net<Dtype> > net, 
-      string name, bool display);
+      string name, bool display, int num_rows);
   const int GetNumTestNets();
 
   SolverParameter param_;

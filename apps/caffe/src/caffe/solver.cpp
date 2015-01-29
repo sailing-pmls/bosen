@@ -236,14 +236,18 @@ void Solver<Dtype>::Solve(const char* resume_file) {
 
   // Register net output tables  
   if (thread_id_ == 0) {
-    const int num_rows_train_net_outputs
-        = (param_.max_iter() - 0) / param_.display() + 5;
-    net_->RegisterNetOutputPSTable(num_rows_train_net_outputs);
-    for (int test_net_id = 0; test_net_id < test_nets_.size(); ++test_net_id) {
-      const int num_rows_test_net_outputs
-          = (param_.max_iter() - 0) / param_.test_interval() + 5;
-      test_nets_[test_net_id]->RegisterNetOutputPSTable(
-          num_rows_test_net_outputs);
+    if (param_.display()) {
+      const int num_rows_train_net_outputs
+          = (param_.max_iter() - 0) / param_.display() + 5;
+      net_->RegisterNetOutputPSTable(num_rows_train_net_outputs);
+    }
+    if (param_.test_interval()) {
+      for (int test_net_id = 0; test_net_id < test_nets_.size(); ++test_net_id) {
+        const int num_rows_test_net_outputs
+            = (param_.max_iter() - 0) / param_.test_interval() + 5;
+        test_nets_[test_net_id]->RegisterNetOutputPSTable(
+            num_rows_test_net_outputs);
+      }
     }
   }
 
@@ -530,12 +534,16 @@ template <typename Dtype>
 void Solver<Dtype>::PrintNetOutputs(const string& filename) {
   std::ofstream outfile(filename.c_str());
   // print train net
-  PrintOutputBlobs(net_, true, outfile);
-  outfile << std::endl;
-  // print test nets
-  for (int test_net_id = 0; test_net_id < test_nets_.size(); ++test_net_id) {
-    PrintOutputBlobs(test_nets_[test_net_id], false, outfile);
+  if (param_.display()) {
+    PrintOutputBlobs(net_, true, outfile);
     outfile << std::endl;
+  }
+  // print test nets
+  if (param_.test_interval()) {
+    for (int test_net_id = 0; test_net_id < test_nets_.size(); ++test_net_id) {
+      PrintOutputBlobs(test_nets_[test_net_id], false, outfile);
+      outfile << std::endl;
+    }
   }
 }
 
