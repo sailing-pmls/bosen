@@ -36,9 +36,9 @@ DEFINE_bool(perform_test, false, "Ignore test_file if false.");
 // Rand Forest Parameters
 DEFINE_int32(num_trees, 1, "# of trees in the forest across all "
     "threads & workers.");
-DEFINE_int32(max_depth, 1, "max depth of each decision tree.");
-DEFINE_int32(num_data_subsample, 100, "# data used in determining each split");
-DEFINE_int32(num_features_subsample, 3, "# of randomly selected features to "
+DEFINE_int32(max_depth, 0, "max depth of each decision tree.");
+DEFINE_int32(num_data_subsample, 0, "# data used in determining each split");
+DEFINE_int32(num_features_subsample, 0, "# of randomly selected features to "
     "consider for a split.");
 
 // Save and Load
@@ -69,6 +69,17 @@ const int32_t kDenseRowIntTypeID = 0;
 int main(int argc, char *argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
+
+  CHECK(FLAGS_num_app_threads > 0) 
+    << "Number of threads should be larger than 0.";
+  CHECK(FLAGS_num_trees > 0) 
+    << "Number of trees should be larger than 0.";
+  CHECK(FLAGS_max_depth >= 0) 
+    << "Max depth cannot be negative.";
+  CHECK(FLAGS_num_data_subsample >= 0) 
+    << "Number of data subsample cannot be negative.";
+  CHECK(FLAGS_num_features_subsample >= 0) 
+    << "Number of feature subsample cannot be negative.";
 
   LOG(INFO) << "Starting Rand Forest with " << FLAGS_num_app_threads
     << " threads";
