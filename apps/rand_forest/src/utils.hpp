@@ -14,6 +14,17 @@ float ComputeEntropy(const std::vector<float> &dist);
 // Normalize
 void Normalize(std::vector<float>* count);
 
+float precision(const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes, float threshold = 0.5);
+float precision(const std::vector<int>& y_pred, const std::vector<int>& y_true, int n_classes);
+
+float recall(const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes, float threshold = 0.5);
+float recall(const std::vector<int>& y_pred, const std::vector<int>& y_true, int n_classes);
+
+float f1_score(const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes, float threshold = 0.5);
+float f1_score(const std::vector<int>& y_pred, const std::vector<int>& y_true, int n_classes);
+
+
+
 // ArgSort
 template <typename T>
 void ArgSort(const std::vector<T>& arr, std::vector<int>& idx, int asc = 1) {
@@ -58,5 +69,6 @@ void ArgSort(const std::vector<T>& arr, std::vector<int>& idx, int asc = 1) {
 		m_stack.push(to);
 	}
 }
+
 
 }  // namespace tree

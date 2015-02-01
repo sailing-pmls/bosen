@@ -12,9 +12,13 @@ RF_HDR = $(wildcard $(RF_SRC_DIR)/*.hpp)
 RF_BIN = $(RF_DIR)/bin
 RF_OBJ = $(RF_SRC:.cpp=.o)
 
-all: $(RF_BIN)/rand_forest_main
+all: $(RF_BIN)/rand_forest_main $(RF_BIN)/random_split
 
 test: split_finder_test_run
+
+$(RF_BIN)/random_split: src/tool/random_split.cpp
+	$(PETUUM_CXX) $(PETUUM_CXXFLAGS) $(PETUUM_INCFLAGS) -Wno-unused-result \
+		$< -o $@ $(PETUUM_LDFLAGS)
 
 $(RF_BIN):
 	mkdir -p $(RF_BIN)
