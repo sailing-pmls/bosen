@@ -11,6 +11,8 @@
 DEFINE_string(filename, "", "Path to the input dataset");
 DEFINE_double(valid_percent, 1.0, "The percentage of data will be included in train and test");
 DEFINE_double(train_percent, 0.8, "The percentage of data will be included in training set");
+DEFINE_string(train_filename, "", "Path to the output of training set");
+DEFINE_string(test_filename, "", "Path to the output of testing set");
 
 int main(int argc, char* argv[]) {
 	google::ParseCommandLineFlags(&argc, &argv, true);
@@ -29,7 +31,7 @@ int main(int argc, char* argv[]) {
 	/* Count # of rows */
 	int row = 0, total_row;
 	for (std::string line; std::getline(data_stream, line); row++);
-	LOG(INFO) << "Line " << row << std::endl;
+	LOG(INFO) << "There are " << row << " lines in the input file.";
 	total_row = row;
 
 	/* Load data again */
@@ -63,11 +65,21 @@ int main(int argc, char* argv[]) {
 	CHECK_EQ(test_vec.size(), test_row);
 
 	std::stringstream s;
-	std::copy(train_vec.begin(), train_vec.end(), std::ostream_iterator<std::string>(s, " "));
-	LOG(INFO) << "Training set: " << s.str();
+	std::ofstream train_out(FLAGS_train_filename.c_str(), std::ios::app), test_out(FLAGS_test_filename.c_str(), std::ios::app);
+
+	CHECK(train_out != nullptr) << "Cannot open train.out";
+	CHECK(test_out != nullptr) << "Cannot open test.out";
+
+	std::copy(train_vec.begin(), train_vec.end(), std::ostream_iterator<std::string>(s, "\n"));
+	LOG(INFO) << "Training set size: " << train_vec.size();
+	train_out << s.str();
 	s.clear();
 	s.str("");
-	std::copy(test_vec.begin(), test_vec.end(), std::ostream_iterator<std::string>(s, " "));
-	LOG(INFO) << "Testing set: " << s.str();
+	std::copy(test_vec.begin(), test_vec.end(), std::ostream_iterator<std::string>(s, "\n"));
+	LOG(INFO) << "Testing set: " << test_vec.size();
+	test_out << s.str();
+
+	train_out.close();
+	test_out.close();
 	return 0;
 }
