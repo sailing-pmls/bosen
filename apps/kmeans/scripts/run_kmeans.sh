@@ -43,10 +43,6 @@ output_dir=$app_dir/output
 output_centers_file="$output_dir/centers_out"
 output_assignments_folder="$output_dir/assignments"
 
-rm -rf ${output_dir}
-mkdir -p ${output_dir}
-mkdir -p ${output_assignments_folder}
-
 output_file_prefix=${output_dir}/KMeans_out  # Prefix for program output files.
 
 # Kill previous instances of this program
@@ -62,7 +58,7 @@ client_id=0
 for ip in $unique_host_list; do
   echo Running client $client_id on $ip
 
-  cmd="GLOG_logtostderr=true \
+  cmd="mkdir -p ${output_dir}; mkdir -p ${output_assignments_folder}; GLOG_logtostderr=true \
       GLOG_v=-1 \
       GLOG_minloglevel=0 \
       GLOG_vmodule="" \
