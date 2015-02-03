@@ -33,7 +33,7 @@ void RandForest::Train() {
     }
   }
 
-int32_t RandForest::Predict(const petuum::ml::AbstractFeature<float>& x,
+void RandForest::Predict(const petuum::ml::AbstractFeature<float>& x,
   std::vector<int32_t>* votes) const {
     std::vector<int32_t> votes_copy(num_labels_);
     for (int i = 0; i < num_trees_; ++i) {
@@ -41,18 +41,18 @@ int32_t RandForest::Predict(const petuum::ml::AbstractFeature<float>& x,
       ++votes_copy[pred_label];
     }
 
-    int32_t max_label = 0;
-    int32_t max_vote = votes_copy[0];
-    for (int j = 1; j < num_labels_; ++j) {
-      if (votes_copy[j] > max_vote) {
-        max_label = j;
-        max_vote = votes_copy[j];
-      }
-    }
+    //int32_t max_label = 0;
+    //int32_t max_vote = votes_copy[0];
+    //for (int j = 1; j < num_labels_; ++j) {
+      //if (votes_copy[j] > max_vote) {
+        //max_label = j;
+        //max_vote = votes_copy[j];
+      //}
+    //}
     if (votes != 0) {
       *votes = votes_copy;
     }
-    return max_label;
+    //return max_label;
 }
 
 void RandForest::SaveTrees(std::string output_file) {

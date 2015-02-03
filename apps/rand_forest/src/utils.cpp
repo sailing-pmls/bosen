@@ -34,13 +34,20 @@ void Normalize(std::vector<float>* count) {
   }
 }
 
+void Int2Float(const std::vector<int>& v1, std::vector<float>& v2) {
+	v2.resize(v1.size());
+	for (int i = 0; i < v1.size(); i++) {
+		v2[i] = (float)v1[i];
+	}
+}
+
 }  // namespace tree
 
 
 namespace {
 	void gen_binary_label(const std::vector<float>& y_pred, std::vector<int>& y_pred_label, float threshold = 0.5) {
 		int size = y_pred.size();
-		y_pred_label.reserve(size);
+		y_pred_label.resize(size);
 		for (int i = 0; i < size; i++) {
 			y_pred_label[i] = y_pred[i] >= threshold ? 1 : 0;
 		}
@@ -48,7 +55,7 @@ namespace {
 	void gen_multi_label(const std::vector<std::vector<float> >& y_pred, std::vector<int>& y_pred_label, int n_classes) {
 		int size = y_pred.size();
 		float max_proba;
-		y_pred_label.reserve(size);
+		y_pred_label.resize(size);
 
 		for (int i = 0; i < size; i++) {
 			max_proba = 0.0;	
@@ -87,8 +94,8 @@ namespace {
 		float avg_precision;
 		CHECK_EQ(size, y_true.size());
 		std::vector<int> true_positive, positive;
-		true_positive.reserve(n_classes);
-		positive.reserve(n_classes);
+		true_positive.resize(n_classes);
+		positive.resize(n_classes);
 
 		for (int i = 0; i < size; i++) {
 			if (y_pred[i] == y_true[i]) {
@@ -138,8 +145,8 @@ namespace {
 		float avg_recall;
 		CHECK_EQ(size, y_true.size());
 		std::vector<int> true_positive, true_label;
-		true_positive.reserve(n_classes);
-		true_label.reserve(n_classes);
+		true_positive.resize(n_classes);
+		true_label.resize(n_classes);
 
 		for (int i = 0; i < size; i++) {
 			if (y_pred[i] == y_true[i]) {
@@ -214,35 +221,130 @@ namespace {
 
 		return ret_auc > 1.0 ? 1.0 : ret_auc;
 	}
+
+	float roc_auc_score_multi(const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes) {
+		float avg_roc_auc_score = 0.0;
+		std::vector<int> y_true_oneVSrest;
+		std::vector<float> y_pred_oneVSrest;
+
+		CHECK_EQ(y_pred.size(), y_true.size()) << "`y_pred` size do not match with `y_true`";
+
+		y_true_oneVSrest.resize(y_true.size());
+		for (int c = 0; c < n_classes; c++) {
+			tree::GetCol(y_pred, y_pred_oneVSrest, c);	
+			for (int i = 0; i < y_pred.size(); i++) {
+				y_true_oneVSrest[i] = y_true[i] == c ? 1 : 0;
+			}
+			avg_roc_auc_score += roc_auc_score(y_pred_oneVSrest, y_true_oneVSrest);
+		}
+		avg_roc_auc_score /= n_classes;
+
+		return avg_roc_auc_score;
+	}
+
+	float auc(const std::vector<float>& x, std::vector<float>& y) {
+		CHECK_EQ(x.size(), y.size()) << "size of vector `x` must match the size of vector `y`";
+		std::vector<int> idx;
+		float last_x = 0.0, ret_auc = 0.0;
+
+		tree::ArgSort(x, idx, 1);
+
+		for (int i = 0; i < x.size(); i++) {
+			CHECK(x[idx[i]] <= 1 && x[idx[i]] >= 0 && y[idx[i]] <= 1 && y[idx[i]] >= 0) << "the 2-d corinates must satisfy 0<=x,y<=1";
+
+			ret_auc += (x[idx[i]] - last_x) * y[idx[i]];
+
+			last_x = x[idx[i]];
+		}
+		return ret_auc;
+	}
+
+	float pr_auc_score(const std::vector<float>& y_pred, const std::vector<int>& y_true) {
+		int TP = 0, FP = 0, TN = 0, FN = 0, size;
+		std::vector<int> idx;
+		std::vector<float> x, y;
+		float ret_auc;
+
+		CHECK_EQ(y_pred.size(), y_true.size()) << "`y_pred` size do not match with `y_true`";
+		tree::ArgSort(y_pred, idx, -1);
+
+		size = y_pred.size();
+		// predict all the examples to negative
+		for (int i = 0; i < size; i++) {
+			if (y_true[idx[i]] == 1) FN++;
+			else TN++;
+		}
+		
+		x.resize(size);
+		y.resize(size);
+
+		for (int i = 0; i < size; i++) {
+			if (y_true[idx[i]] == 1) {
+				FN--;
+				TP++;
+			} else {
+				TN--;
+				FP++;
+			}
+			// recall
+			x[i] = (float)TP / (TP+FN);	
+			// precision
+			y[i] = (float)TP / (TP+FP);
+		}
+		
+		ret_auc = auc(x, y);
+
+		return ret_auc > 1.0 ? 1.0 : ret_auc;
+	}
+}
+
+float pr_auc_score_multi(const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes) {
+	float avg_pr_auc_score = 0.0;
+	std::vector<int> y_true_oneVSrest;
+	std::vector<float> y_pred_oneVSrest;
+
+	CHECK_EQ(y_pred.size(), y_true.size()) << "`y_pred` size do not match with `y_true`";
+
+	y_true_oneVSrest.resize(y_true.size());
+	for (int c = 0; c < n_classes; c++) {
+		tree::GetCol(y_pred, y_pred_oneVSrest, c);	
+		for (int i = 0; i < y_pred.size(); i++) {
+			y_true_oneVSrest[i] = y_true[i] == c ? 1 : 0;
+		}
+		avg_pr_auc_score += pr_auc_score(y_pred_oneVSrest, y_true_oneVSrest);
+	}
+	avg_pr_auc_score /= n_classes;
+
+	return avg_pr_auc_score;
 }
 
 namespace tree {
-	void getRow(const std::vector<std::vector<float> >& matrix, std::vector<float>& row, int rowId) {
+	void GetRow(const std::vector<std::vector<float> >& matrix, std::vector<float>& row, int rowId) {
 		CHECK(rowId >= 0 && rowId < matrix.size());
 		row = matrix[rowId];
 	}
 
-	void getCol(const std::vector<std::vector<float> >& matrix, std::vector<float>& col, int colId) {
+	void GetCol(const std::vector<std::vector<float> >& matrix, std::vector<float>& col, int colId) {
 		int colSize = matrix[0].size(), rowCount = 0;
 		CHECK(colId >= 0 && colId < colSize);
-		col.reserve(colSize);
-		for (auto& row : matrix) {
+		col.resize(matrix.size());
+		for (auto& row: matrix) {
 			CHECK_EQ(row.size(), colSize);
-			col[rowCount++];
+			col[rowCount++] = row[colId];
 		}
 	}
 
-	float precision(const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes, float threshold) {
+	float Precision(const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes, float threshold) {
 		CHECK_GE(n_classes, 2);
 		if (n_classes == 2) {
 			std::vector<float> y_pred_pos;
-			getCol(y_pred, y_pred_pos, 1);
+			GetCol(y_pred, y_pred_pos, 1);
 			return precision_bin(y_pred_pos, y_true, threshold);
 		} else {
 			return precision_mul(y_pred, y_true, n_classes);
 		}
 	}
-	float precision(const std::vector<int>& y_pred, const std::vector<int>& y_true, int n_classes) {
+	float Precision(const std::vector<int>& y_pred, const std::vector<int>& y_true, int n_classes) {
 		CHECK_GE(n_classes, 2);
 		if (n_classes == 2) {
 			return precision_bin(y_pred, y_true);
@@ -251,17 +353,17 @@ namespace tree {
 		}
 	}
 
-	float recall(const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes, float threshold) {
+	float Recall(const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes, float threshold) {
 		CHECK_GE(n_classes, 2);
 		if (n_classes == 2) {
 			std::vector<float> y_pred_pos;
-			getCol(y_pred, y_pred_pos, 1);
+			GetCol(y_pred, y_pred_pos, 1);
 			return recall_bin(y_pred_pos, y_true, threshold);
 		} else {
 			return recall_mul(y_pred, y_true, n_classes);
 		}
 	}
-	float recall(const std::vector<int>& y_pred, const std::vector<int>& y_true, int n_classes) {
+	float Recall(const std::vector<int>& y_pred, const std::vector<int>& y_true, int n_classes) {
 		CHECK_GE(n_classes, 2);
 		if (n_classes == 2) {
 			return recall_bin(y_pred, y_true);
@@ -270,22 +372,63 @@ namespace tree {
 		}
 	}
 
-	float f1_score(const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes, float threshold) {
+	float F1_score(const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes, float threshold) {
 		CHECK_GE(n_classes, 2);
 		if (n_classes == 2) {
 			std::vector<float> y_pred_pos;
-			getCol(y_pred, y_pred_pos, 1);
+			GetCol(y_pred, y_pred_pos, 1);
 			return f1_score_bin(y_pred_pos, y_true, threshold);
 		} else {
 			return f1_score_mul(y_pred, y_true, n_classes);
 		}
 	}
-	float f1_score(const std::vector<int>& y_pred, const std::vector<int>& y_true, int n_classes) {
+	float F1_score(const std::vector<int>& y_pred, const std::vector<int>& y_true, int n_classes) {
 		CHECK_GE(n_classes, 2);
 		if (n_classes == 2) {
 			return f1_score_bin(y_pred, y_true);
 		} else {
 			return f1_score_mul(y_pred, y_true, n_classes);
 		}
+	}
+	float Roc_auc_score(const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes) {
+		CHECK_GE(n_classes, 2);
+		if (n_classes == 2) {
+			std::vector<float> y_pred_pos;
+			GetCol(y_pred, y_pred_pos, 1);
+			return roc_auc_score(y_pred_pos, y_true);
+		} else {
+			return roc_auc_score_multi(y_pred, y_true, n_classes);
+		}
+	}
+	float Pr_auc_score(const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes) {
+		CHECK_GE(n_classes, 2) ;
+		if (n_classes == 2) {
+			std::vector<float> y_pred_pos;
+			GetCol(y_pred, y_pred_pos, 1);
+			return pr_auc_score(y_pred_pos, y_true);
+		} else {
+			return pr_auc_score_multi(y_pred, y_true, n_classes);
+		}
+	}
+	void PerformanceReport(const std::string& filename, const std::vector<std::vector<float> >& y_pred, const std::vector<int>& y_true, int n_classes, float threshold) {
+		std::ofstream out;
+		out.open(filename.c_str(), std::ios::out);
+		CHECK(out != nullptr) << "Cannot open report file.";
+
+		CHECK_EQ(y_pred.size(), y_true.size()) << "`y_pred` size do not match with `y_true`";
+
+		// set format
+		out << std::fixed << std::setprecision(3);
+
+		out << "Test Set Size\t" << y_pred.size() << std::endl;
+		if (n_classes == 2) 
+			out << "Threshold\t" << threshold << std::endl;
+		out << "Precision\t" << Precision(y_pred, y_true, n_classes, threshold) << std::endl;
+		out << "Recall\t" << Recall(y_pred, y_true, n_classes, threshold) << std::endl;
+		out << "F1-score\t" << F1_score(y_pred, y_true, n_classes, threshold) << std::endl;
+		out << "ROC-AUC score\t" << Roc_auc_score(y_pred, y_true, n_classes) << std::endl;
+		out << "Precision-Recall AUC score\t" << Pr_auc_score(y_pred, y_true, n_classes) << std::endl;
+	
+		out.close();
 	}
 };

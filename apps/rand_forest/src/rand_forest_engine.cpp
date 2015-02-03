@@ -5,6 +5,7 @@
 #include "decision_tree.hpp"
 #include "rand_forest.hpp"
 #include "rand_forest_engine.hpp"
+#include "utils.hpp"
 #include <ml/include/ml.hpp>
 #include <vector>
 #include <cstdint>
@@ -13,6 +14,7 @@
 #include <iostream>
 #include <fstream>
 #include <iterator>
+#include <iomanip>
 #include <algorithm>
 
 namespace tree {
@@ -27,6 +29,9 @@ RandForestEngine::RandForestEngine() : num_train_data_(0),
   perform_test_ = FLAGS_perform_test;
   // Params for saving prediction on test set
   save_pred_ = FLAGS_save_pred;
+  output_proba_ = FLAGS_output_proba;
+  save_report_ = FLAGS_save_report;
+  report_file_ = FLAGS_report_file;
   pred_file_ = FLAGS_pred_file;
   if (save_pred_) {
     CHECK(!pred_file_.empty()) << "Need to specify a prediction "
@@ -182,12 +187,14 @@ void RandForestEngine::Start() {
       rand_forest.LoadTrees(input_file_);
       LOG(INFO) << "Trees loaded from file.";
       // Evaluating overall test error
-      float test_error = VoteOnTestData(rand_forest);
-      test_error = ComputeTestError();
-      petuum::PSTableGroup::GlobalBarrier();
-      LOG(INFO) << "Test error: " << test_error
-        << " computed on " << test_features_.size() << " test instances.";
-      petuum::PSTableGroup::DeregisterThread();
+      //float test_error = VoteOnTestData(rand_forest);
+      VoteOnTestData(rand_forest);
+
+      //test_error = ComputeTestError();
+      //petuum::PSTableGroup::GlobalBarrier();
+      //LOG(INFO) << "Test error: " << test_error
+        //<< " computed on " << test_features_.size() << " test instances.";
+      //petuum::PSTableGroup::DeregisterThread();
     }
     return;
   }
@@ -232,20 +239,24 @@ void RandForestEngine::Start() {
 
   // Test error.
   if (perform_test_) {
-    float test_error = VoteOnTestData(rand_forest);
+    //float test_error = VoteOnTestData(rand_forest);
+    VoteOnTestData(rand_forest);
     petuum::PSTableGroup::GlobalBarrier();
+	if (FLAGS_client_id == 0 && thread_id == 0) {
+		GeneratePerformanceReport();
+	}
     // Evaluating test error on one thread of each machine.
-    if (thread_id == 0) {
-      LOG(INFO) << "client " << FLAGS_client_id << " test error: "
-        << test_error << " (evaluated on "
-        << num_test_data_ << " test data)";
-    }
+    //if (thread_id == 0) {
+      //LOG(INFO) << "client " << FLAGS_client_id << " test error: "
+        //<< test_error << " (evaluated on "
+        //<< num_test_data_ << " test data)";
+    //}
     // Evaluating overall test error
-    if (FLAGS_client_id == 0 && thread_id == 0) {
-      float test_error = ComputeTestError();
-      LOG(INFO) << "Test error: " << test_error
-        << " computed on " << test_features_.size() << " test instances.";
-    }
+    //if (FLAGS_client_id == 0 && thread_id == 0) {
+      //float test_error = ComputeTestError();
+      //LOG(INFO) << "Test error: " << test_error
+        //<< " computed on " << test_features_.size() << " test instances.";
+    //}
   }
 
   petuum::PSTableGroup::DeregisterThread();
@@ -259,19 +270,21 @@ float RandForestEngine::EvaluateErrorLocal(const RandForest& rand_forest,
   float error = 0.;
   for (int i = 0; i < features.size(); ++i) {
     const petuum::ml::AbstractFeature<float>& x = *(features[i]);
-    int pred_label = rand_forest.Predict(x);
-    error += (labels[i] == pred_label) ? 0 : 1.;
+    rand_forest.Predict(x);
+    //int pred_label = rand_forest.Predict(x);
+    //error += (labels[i] == pred_label) ? 0 : 1.;
   }
   return error / features.size();
 }
 
-float RandForestEngine::VoteOnTestData(const RandForest& rand_forest) {
-  float error = 0.;
+void RandForestEngine::VoteOnTestData(const RandForest& rand_forest) {
+  //float error = 0.;
   for (int i = 0; i < test_features_.size(); ++i) {
     std::vector<int> votes;
     const petuum::ml::AbstractFeature<float>& x = *(test_features_[i]);
-    int pred_label = rand_forest.Predict(x, &votes);
-    error += (test_labels_[i] == pred_label) ? 0 : 1.;
+    //int pred_label = rand_forest.Predict(x, &votes);
+    rand_forest.Predict(x, &votes);
+    //error += (test_labels_[i] == pred_label) ? 0 : 1.;
     // add votes to test_vote_table_
     petuum::UpdateBatch<int> vote_update_batch(num_labels_);
     for (int j = 0; j < num_labels_; ++j) {
@@ -279,7 +292,7 @@ float RandForestEngine::VoteOnTestData(const RandForest& rand_forest) {
     }
     test_vote_table_.BatchInc(i, vote_update_batch);
   }
-  return error / test_features_.size();
+  //return error / test_features_.size();
 }
 
 void RandForestEngine::AccumulateGainRatio(const RandForest& rand_forest) {
@@ -339,6 +352,55 @@ float RandForestEngine::ComputeTestError() {
   }
   LOG(INFO) << "Test using " << num_trees << " trees.";
   return error / test_features_.size();
+}
+
+void RandForestEngine::GeneratePerformanceReport() {
+	std::vector<std::vector<float> > proba_dist;
+
+	// Save perdict result to file
+	std::ofstream fpred;
+	if (save_pred_) {
+		fpred.open(pred_file_, std::ios::out);
+		CHECK(fpred != NULL) << "Cannot open prediction output file ";
+	}
+
+	proba_dist.resize(test_features_.size());
+	for (int i = 0; i < test_features_.size(); i++) {
+		petuum::RowAccessor row_acc;
+		test_vote_table_.Get(i, &row_acc);
+		const auto& test_vote_row = row_acc.Get<petuum::DenseRow<int> >();
+		std::vector<int> test_votes;
+		std::vector<float> single_proba_dist;
+		test_vote_row.CopyToVector(&test_votes);
+		Int2Float(test_votes, single_proba_dist);
+		Normalize(&single_proba_dist);
+
+
+		// add to the overall probability distribution
+		proba_dist[i] = single_proba_dist;
+		if (save_pred_) {
+			if (output_proba_) {
+				fpred << std::fixed << std::setprecision(3);
+				for (int i = 0; i < single_proba_dist.size(); i++) fpred << single_proba_dist[i] << "\t";
+				fpred << std::endl;
+			} else {
+				int max_label = 0;
+				for (int j = 1; j < num_labels_; j++) {
+					if (test_votes[max_label] < test_votes[j]) {
+						max_label = j;
+					}
+				}
+				fpred << max_label << std::endl;
+			}
+		}
+	}
+
+	if (save_report_)
+		PerformanceReport(report_file_, proba_dist, test_labels_, num_labels_);
+
+	if (fpred.is_open()) {
+		fpred.close();
+	}
 }
 
 void RandForestEngine::ComputeFeatureImportance(std::vector<float>& importance) {

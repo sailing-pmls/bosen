@@ -41,7 +41,7 @@ public:
 
   // Return the predicted x's label; optionally return the vote
   // (votes->size() will be num_labels_).
-  int32_t Predict(const petuum::ml::AbstractFeature<float>& x,
+  void Predict(const petuum::ml::AbstractFeature<float>& x,
       std::vector<int32_t>* votes = 0) const;
 
   void ComputeFeatureImportance(std::vector<float>& importance) const;

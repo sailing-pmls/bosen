@@ -47,7 +47,8 @@ private:  // private methods
      const std::vector<int32_t>& labels);
 
   // Register label votes on test data on test_vote_table_.
-  float VoteOnTestData(const RandForest& rand_forest);
+  //float VoteOnTestData(const RandForest& rand_forest);
+  void VoteOnTestData(const RandForest& rand_forest);
 
   // Only head thread should call this to collect the votes and compute test
   // error.
@@ -58,6 +59,8 @@ private:  // private methods
 
   // Only head thread should call this to collect the gain ratio from all trees
   void ComputeFeatureImportance(std::vector<float>& importance);
+
+  void GeneratePerformanceReport();
 
 private:
   // ============== Data Variables ==================
@@ -72,6 +75,9 @@ private:
   bool feature_one_based_;  // feature starts from 1 (train and test).
   bool label_one_based_;    // label starts from 1 (train and test).
   bool save_pred_; // whether to save prediction on test set to file
+  bool output_proba_; // Save probability distribution or label
+  bool save_report_; // Whether to save performance report on test data
+  std::string report_file_; // Path ot report file
   std::string pred_file_; // path of prediction output file
   bool save_trees_;  // whether to save trees to file
   std::string output_file_;  // path of output file

@@ -46,6 +46,9 @@ DEFINE_int32(num_features_subsample, 3, "# of randomly selected features to "
 // Save and Load
 DEFINE_bool(save_pred, false, "Prediction of test set will be saved "
     "if true.");
+DEFINE_bool(output_proba, false, "The saved prodiction will be probability distribution if true label otherwise.");
+DEFINE_bool(save_report, false, "Performance on test data will be saved if true");
+DEFINE_string(report_file, "", "Path to report file");
 DEFINE_string(pred_file, "", "Prediction of test set will be save to "
     "this file if FLAGS_save_pred == true.");
 DEFINE_bool(save_trees, false, "Save trees to file if true.");

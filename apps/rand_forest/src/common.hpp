@@ -30,6 +30,9 @@ DECLARE_int32(num_features_subsample);
 
 // Save and Load
 DECLARE_bool(save_pred);
+DECLARE_bool(output_proba);
+DECLARE_bool(save_report);
+DECLARE_string(report_file);
 DECLARE_string(pred_file);
 DECLARE_bool(save_trees);
 DECLARE_string(output_file);

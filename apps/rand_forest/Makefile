@@ -44,7 +44,7 @@ split_finder_test_run: $(RF_BIN)/split_finder_test
 	$<
 
 clean:
-	rm -rf $(RF_OBJ)
-	rm -rf $(RF_BIN)
+	rm -rf $(RF_OBJ) src/tool/random_split.o
+	rm -rf $(RF_BIN) 
 
 .PHONY: clean
