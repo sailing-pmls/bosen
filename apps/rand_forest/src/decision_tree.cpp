@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <ml/include/ml.hpp>
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 namespace tree {
@@ -37,7 +38,8 @@ void DecisionTree::Init(const DecisionTreeConfig& config) {
   // Tree configs.
   max_depth_ = config.max_depth;
   num_data_subsample_ = config.num_data_subsample;
-  num_features_subsample_ = config.num_features_subsample;
+  //num_features_subsample_ = config.num_features_subsample;
+  num_features_subsample_ = sqrt(config.feature_dim);
   num_labels_ = config.num_labels;
   feature_dim_ = config.feature_dim;
 

@@ -211,13 +211,13 @@ void RandForestEngine::Start() {
   }
 
   // Evaluating training error on one thread of each machine.
-  if (thread_id == 0) {
-    float train_error = EvaluateErrorLocal(rand_forest,
-        train_features_, train_labels_);
-    LOG(INFO) << "client " << FLAGS_client_id << " train error: "
-      << train_error << " (evaluated on "
-      << num_train_data_ << " training data)";
-  }
+  //if (thread_id == 0) {
+    //float train_error = EvaluateErrorLocal(rand_forest,
+        //train_features_, train_labels_);
+    //LOG(INFO) << "client " << FLAGS_client_id << " train error: "
+      //<< train_error << " (evaluated on "
+      //<< num_train_data_ << " training data)";
+  //}
 
   // Feature importance
   if (FLAGS_compute_importance) {

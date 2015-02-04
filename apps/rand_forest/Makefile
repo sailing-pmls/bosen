@@ -12,13 +12,17 @@ RF_HDR = $(wildcard $(RF_SRC_DIR)/*.hpp)
 RF_BIN = $(RF_DIR)/bin
 RF_OBJ = $(RF_SRC:.cpp=.o)
 
-all: $(RF_BIN)/rand_forest_main $(RF_BIN)/random_split
+all: $(RF_BIN)/rand_forest_main $(RF_BIN)/random_split $(RF_BIN)/libsvm2binary
 
 test: split_finder_test_run
 
 $(RF_BIN)/random_split: src/tool/random_split.cpp
 	$(PETUUM_CXX) $(PETUUM_CXXFLAGS) $(PETUUM_INCFLAGS) -Wno-unused-result \
 		$< -o $@ $(PETUUM_LDFLAGS)
+
+$(RF_BIN)/libsvm2binary: src/tool/libsvm2binary.cpp
+	$(PETUUM_CXX) $(PETUUM_CXXFLAGS) $(PETUUM_INCFLAGS) -Wno-unused-result \
+		$< -o $@ $(PETUUM_ML_LIB) $(PETUUM_PS_LIB) $(PETUUM_LDFLAGS)
 
 $(RF_BIN):
 	mkdir -p $(RF_BIN)
@@ -44,7 +48,7 @@ split_finder_test_run: $(RF_BIN)/split_finder_test
 	$<
 
 clean:
-	rm -rf $(RF_OBJ) src/tool/random_split.o
+	rm -rf $(RF_OBJ) src/tool/random_split.o src/tool/libsvm2binary.o
 	rm -rf $(RF_BIN) 
 
 .PHONY: clean

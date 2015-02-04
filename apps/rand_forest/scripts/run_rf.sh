@@ -3,10 +3,12 @@
 # Input files:
 
 # Iris Dataset
-#train_filename="iris.train"
-#test_filename="iris.test"
-train_filename="webspam_wc_normalized_unigram.svm.tr"
-test_filename="webspam_wc_normalized_unigram.svm.te"
+#train_filename="iris.train.bin"
+#test_filename="iris.test.bin"
+#train_filename="webspam_wc_normalized_unigram.svm.tr"
+#test_filename="webspam_wc_normalized_unigram.svm.te"
+train_filename="webspam_wc_normalized_unigram.bin.tr"
+test_filename="webspam_wc_normalized_unigram.bin.te"
 train_file=$(readlink -f datasets/$train_filename)
 test_file=$(readlink -f datasets/$test_filename)
 
@@ -23,7 +25,7 @@ output_filename="forest.model"
 
 # Rand Forest parameters
 num_trees=10
-max_depth=10
+max_depth=2
 num_data_subsample=0
 num_features_subsample=10
 compute_importance=true
@@ -56,10 +58,12 @@ unique_host_list=`cat $host_file | awk '{ print $2 }' | uniq`
 num_unique_hosts=`cat $host_file | awk '{ print $2 }' | uniq | wc -l`
 
 output_dir=$app_dir/output
-output_dir="${output_dir}/rf.${train_filename}.RT`date +%Y%m%d%H%M%S`.S${staleness}.E${num_epochs}"
+output_dir="${output_dir}/rf.${train_filename}"
+#output_dir="${output_dir}.RT`date +%Y%m%d%H%M%S`i"
+output_dir="${output_dir}.S${staleness}.E${num_epochs}"
 output_dir="${output_dir}.M${num_unique_hosts}"
 output_dir="${output_dir}.T${num_app_threads}"
-output_dir="${output_dir}.TREE${num_trees}"
+output_dir="${output_dir}.TREE${num_trees}.test"
 output_file_prefix=$output_dir/rf_out  # prefix for program outputs
 
 output_file_prefix=${output_dir}/rf_out  # Prefix for program output files.

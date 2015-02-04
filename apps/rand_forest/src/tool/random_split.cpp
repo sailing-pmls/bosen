@@ -24,12 +24,15 @@ int main(int argc, char* argv[]) {
 	LOG(INFO) << "Starting Reading Data ...";
 	std::ifstream file(FLAGS_filename, std::ifstream::binary);
 
+	CHECK(file != nullptr) << "Cannot open file!";
+
 	std::string file_str((std::istreambuf_iterator<char>(file)),
 			std::istreambuf_iterator<char>());
 	std::istringstream data_stream(file_str);	
+	LOG(INFO) << "Finish Reading Data ...";
 
 	/* Count # of rows */
-	int row = 0, total_row;
+	long long row = 0, total_row;
 	for (std::string line; std::getline(data_stream, line); row++);
 	LOG(INFO) << "There are " << row << " lines in the input file.";
 	total_row = row;
@@ -40,9 +43,9 @@ int main(int argc, char* argv[]) {
 
 	std::vector<std::string> train_vec;
 	std::vector<std::string> test_vec;
-	int valid_row = total_row * FLAGS_valid_percent, valid_row_left = valid_row;
-	int train_row = valid_row * FLAGS_train_percent, train_row_left = train_row;
-	int test_row = valid_row - train_row;
+	long long valid_row = total_row * FLAGS_valid_percent, valid_row_left = valid_row;
+	long long train_row = valid_row * FLAGS_train_percent, train_row_left = train_row;
+	long long test_row = valid_row - train_row;
 
 	std::random_device rd;
 	std::mt19937 mt(rd());
@@ -65,7 +68,7 @@ int main(int argc, char* argv[]) {
 	CHECK_EQ(test_vec.size(), test_row);
 
 	std::stringstream s;
-	std::ofstream train_out(FLAGS_train_filename.c_str(), std::ios::app), test_out(FLAGS_test_filename.c_str(), std::ios::app);
+	std::ofstream train_out(FLAGS_train_filename.c_str()), test_out(FLAGS_test_filename.c_str());
 
 	CHECK(train_out != nullptr) << "Cannot open train.out";
 	CHECK(test_out != nullptr) << "Cannot open test.out";
