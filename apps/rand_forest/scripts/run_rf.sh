@@ -21,6 +21,7 @@ num_trees=500
 max_depth=5
 num_data_subsample=20
 num_features_subsample=2
+num_feat_split_vals=10
 
 # Host file
 host_filename="scripts/localserver"
@@ -97,6 +98,7 @@ for ip in $unique_host_list; do
       --save_pred=$save_pred \
       --pred_file=$pred_file \
       --save_trees=$save_trees \
+      --num_feat_split_vals=$num_feat_split_vals \
       --output_file=$output_file "
 
   ssh $ssh_options $ip $cmd &

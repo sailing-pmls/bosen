@@ -40,6 +40,8 @@ DEFINE_int32(max_depth, 0, "max depth of each decision tree.");
 DEFINE_int32(num_data_subsample, 0, "# data used in determining each split");
 DEFINE_int32(num_features_subsample, 0, "# of randomly selected features to "
     "consider for a split.");
+DEFINE_int32(num_feat_split_vals, 3, "# of feature split values to consider "
+    "when finding best feature to split.");
 
 // Save and Load
 DEFINE_bool(save_pred, false, "Prediction of test set will be saved "

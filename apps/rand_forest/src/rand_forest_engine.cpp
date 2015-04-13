@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iterator>
 #include <algorithm>
+#include <petuum_ps_common/include/petuum_ps.hpp>
 
 namespace tree {
 
@@ -222,9 +223,11 @@ void RandForestEngine::Start() {
     }
     // Evaluating overall test error
     if (FLAGS_client_id == 0 && thread_id == 0) {
+      petuum::HighResolutionTimer test_timer;
       float test_error = ComputeTestError();
       LOG(INFO) << "Test error: " << test_error
-        << " computed on " << test_features_.size() << " test instances.";
+        << " computed on " << test_features_.size() << " test instances in "
+        << test_timer.elapsed() << " seconds";
     }
   }
 

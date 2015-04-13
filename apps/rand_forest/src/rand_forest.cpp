@@ -2,6 +2,7 @@
 // Date: 2014.11.8
 
 #include "rand_forest.hpp"
+#include <petuum_ps_common/include/petuum_ps.hpp>
 
 
 namespace tree {
@@ -10,25 +11,25 @@ RandForest::RandForest(const RandForestConfig& config) :
   client_id_(config.client_id), thread_id_(config.thread_id),
   num_threads_(config.num_threads), num_trees_(config.num_trees),
   num_labels_(config.tree_config.num_labels),
-  save_trees_(config.save_trees), tree_config_(config.tree_config) { 
+  save_trees_(config.save_trees), trees_(config.num_trees), tree_config_(config.tree_config) { 
 
+    for (int i = 0; i < num_trees_; ++i) {
+      trees_[i] = new DecisionTree();
+    }
   }
 
 void RandForest::Train() {
-
-    LOG(INFO) <<"Client " << client_id_<< " Thread " << thread_id_ 
-      << ": Random Forest begin training.";
+    petuum::HighResolutionTimer train_timer;
     for (int i = 0; i < num_trees_; ++i) {
       // Build each tree.
-      DecisionTree* tree = new DecisionTree();
-      tree->Init(tree_config_);
-      trees_.push_back(tree);
+      trees_[i]->Init(tree_config_);
       if (save_trees_) {
-        serial_trees_.push_back(trees_[i]->GetSerializedTree());        
+        serial_trees_.push_back(trees_[i]->GetSerializedTree());
       }
       if ((client_id_ == 0) && (thread_id_ == 0)) {
-        LOG(INFO) << "Each thread trained " 
-          << i + 1 << "/" << num_trees_ << " trees.";
+        LOG_EVERY_N(INFO, 10) << "Thread 0 on client 0 trained " 
+          << i + 1 << "/" << num_trees_ << " trees. Time: "
+          << train_timer.elapsed();
       }
     }
   }
@@ -81,5 +82,13 @@ void RandForest::LoadTrees(std::string input_file) {
   CHECK(num_trees_) << "Do not load any trees from file!";
   fin.close();
 }
+
+
+RandForest::~RandForest() {
+  for (int i = 0; i < trees_.size(); ++i) {
+    delete trees_[i];
+  }
+}
+
 
 }  // namespace tree
