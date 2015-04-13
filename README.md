@@ -9,7 +9,9 @@ Petuum
 
 Wiki manual (latest version of Petuum only): https://github.com/petuum/public/wiki<br>
 
-Website: http://www.petuum.org.
+Website: http://www.petuum.org
+
+For support, please send email to petuum-user@googlegroups.com. Please provide your name and affiliation when requesting support; we do not support anonymous inquiries.
 
 Petuum is a distributed machine learning framework. It takes care of the difficult system "plumbing work", allowing you to focus on the ML. Petuum runs efficiently at scale on research clusters and cloud compute like Amazon EC2 and Google GCE.
 
