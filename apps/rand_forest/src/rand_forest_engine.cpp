@@ -213,7 +213,7 @@ void RandForestEngine::Start() {
 
   // Test error.
   if (perform_test_) {
-    float test_error = VoteOnTestData(rand_forest);
+    VoteOnTestData(rand_forest);
     petuum::PSTableGroup::GlobalBarrier();
     // Evaluating overall test error
     if (FLAGS_client_id == 0 && thread_id == 0) {
