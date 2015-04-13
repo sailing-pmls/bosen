@@ -1,6 +1,7 @@
 // Author: Jiesi Zhao (jiesizhao0423@gmail.com), Wei Dai (wdai@cs.cmu.edu)
 // Date: 2014.11.5
 
+#include "common.hpp"
 #include "decision_tree.hpp"
 #include "split_finder.hpp"
 #include <glog/logging.h>
@@ -110,7 +111,7 @@ TreeNode* DecisionTree::RecursiveBuild(int32_t depth,
 
   // Base case.
   if (depth == max_depth_ - 1 || available_feature_ids.size() == 0 ||
-      AllSameLabels(available_data_idx)) {
+      AllSameLabels(available_data_idx) || available_data_idx.size() < FLAGS_num_stop_split) {
     curr_node->SetLeafVal(ComputeLeafVal(available_data_idx));
     return curr_node;
   }

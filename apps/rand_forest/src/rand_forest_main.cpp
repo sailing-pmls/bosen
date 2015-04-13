@@ -42,7 +42,7 @@ DEFINE_int32(num_features_subsample, 0, "# of randomly selected features to "
     "consider for a split.");
 DEFINE_int32(num_feat_split_vals, 3, "# of feature split values to consider "
     "when finding best feature to split.");
-
+DEFINE_int32(num_stop_split, 10, "least number of samples used to split a node");
 // Save and Load
 DEFINE_bool(save_pred, false, "Prediction of test set will be saved "
     "if true.");
