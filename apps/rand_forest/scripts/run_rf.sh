@@ -12,15 +12,17 @@ test_file=$(readlink -f datasets/$test_filename)
 global_data=true
 perform_test=true
 save_pred=true
-pred_filename="prediction.result"
-save_trees=true
+pred_filename="iris.result"
+save_trees=false
 output_filename="forest.model"
 
 # Rand Forest parameters
-num_trees=500
+num_trees=100
 max_depth=5
 num_data_subsample=20
 num_features_subsample=2
+num_feat_split_vals=10
+num_stop_split=5
 
 # Host file
 host_filename="scripts/localserver"
@@ -30,7 +32,7 @@ num_train_data=0  # 0 to use all training data.
 
 # System parameters:
 num_app_threads=2
-num_comm_channels_per_client=8
+num_comm_channels_per_client=1
 
 # Figure out the paths.
 script_path=`readlink -f $0`
@@ -94,6 +96,7 @@ for ip in $unique_host_list; do
       --num_data_subsample=$num_data_subsample \
       --num_features_subsample=$num_features_subsample \
       --num_trees=$num_trees \
+      --num_stop_split=$num_stop_split \
       --save_pred=$save_pred \
       --pred_file=$pred_file \
       --save_trees=$save_trees \

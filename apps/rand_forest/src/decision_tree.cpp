@@ -1,6 +1,7 @@
 // Author: Jiesi Zhao (jiesizhao0423@gmail.com), Wei Dai (wdai@cs.cmu.edu)
 // Date: 2014.11.5
 
+#include "common.hpp"
 #include "decision_tree.hpp"
 #include "split_finder.hpp"
 #include <glog/logging.h>
@@ -12,12 +13,18 @@
 
 namespace tree {
 
-DecisionTree::DecisionTree(std::string input): features_(0), labels_(0),
+DecisionTree::DecisionTree(): features_(0), labels_(0),
   num_data_(0), max_depth_(0), num_data_subsample_(0),
   num_features_subsample_(0), num_labels_(0), feature_dim_(0) {
-
   std::random_device rd;
-  rng_engine_.reset(new std::mt19937(rd()));  
+  rng_engine_.reset(new std::mt19937(rd()));
+}
+
+DecisionTree::DecisionTree(const std::string& input): features_(0), labels_(0),
+  num_data_(0), max_depth_(0), num_data_subsample_(0),
+  num_features_subsample_(0), num_labels_(0), feature_dim_(0) {
+  std::random_device rd;
+  rng_engine_.reset(new std::mt19937(rd()));
 
   TreeNode *root = new TreeNode();
   std::istringstream istr (input);
@@ -67,11 +74,13 @@ std::string DecisionTree::GetSerializedTree(){
   // Serialize the root
   std::string stree;
   if (root_->GetFeatureId() != -1) {
-    stree = std::to_string(root_->GetFeatureId()) + ":" + std::to_string(root_->GetSplitVal()) + " ";
+    stree = std::to_string(root_->GetFeatureId()) + ":" +
+      std::to_string(root_->GetSplitVal()) + " ";
     Serialize(root_->GetLeftChild(), stree);
-    Serialize(root_->GetRightChild(), stree);     
+    Serialize(root_->GetRightChild(), stree);
   } else {
-    stree = std::to_string(root_->GetFeatureId()) + ":" + std::to_string(root_->GetLeafVal()) + " ";
+    stree = std::to_string(root_->GetFeatureId()) + ":" +
+      std::to_string(root_->GetLeafVal()) + " ";
   }
   return stree;
 }
@@ -88,33 +97,36 @@ TreeNode* DecisionTree::RecursiveBuild(int32_t depth,
     curr_node = new TreeNode();
 
     // Subsample data if we have more than num_data_subsample_.
-    if (num_data_subsample_ > 0 && 
-      available_data_idx.size() > num_data_subsample_) {
-      std::vector<int32_t> available_data_idx_copy = available_data_idx;
-      std::shuffle(available_data_idx_copy.begin(),
-          available_data_idx_copy.end(), *rng_engine_);
-      sub_data_idx = std::vector<int32_t>(available_data_idx_copy.begin(),
-          available_data_idx_copy.begin() + num_data_subsample_);
+    int N = available_data_idx.size();
+    int k = num_data_subsample_;
+    if (k > 0 && N > k) {
+      std::vector<int> samples = sampler_.SampleWithoutReplacement(N, k);
+      sub_data_idx.resize(k);
+      for (int i = 0; i < k; ++i) {
+        CHECK_LT(samples[i], N);
+        sub_data_idx[i] = available_data_idx[samples[i]];
+      }
     }
   }
 
   // Base case.
   if (depth == max_depth_ - 1 || available_feature_ids.size() == 0 ||
-      AllSameLabels(available_data_idx)) {
+      AllSameLabels(available_data_idx) || available_data_idx.size() < FLAGS_num_stop_split) {
     curr_node->SetLeafVal(ComputeLeafVal(available_data_idx));
-    return curr_node;                                                                                                                                      
+    return curr_node;
   }
 
   // Subsample features if we have more than num_features_subsample_.
-  std::vector<int32_t> sub_feature_ids;    
-  std::vector<int32_t> available_feature_ids_copy = available_feature_ids;
-  if (num_features_subsample_ > 0 && 
-    available_feature_ids.size() > num_features_subsample_) {    
-    std::shuffle(available_feature_ids_copy.begin(),
-        available_feature_ids_copy.end(), *rng_engine_);
-    sub_feature_ids = std::vector<int32_t>(available_feature_ids_copy.begin(),
-        available_feature_ids_copy.begin() + num_features_subsample_);
-  }else{
+  int N = available_feature_ids.size();
+  int k = num_features_subsample_;
+  std::vector<int32_t> sub_feature_ids(k);
+  if (k > 0 && N > k) {
+    std::vector<int> samples = sampler_.SampleWithoutReplacement(N, k);
+    for (int i = 0; i < k; ++i) {
+      CHECK_LT(samples[i], N);
+      sub_feature_ids[i] = available_feature_ids[samples[i]];
+    }
+  } else {
     sub_feature_ids = available_feature_ids;
   }
 
@@ -132,6 +144,7 @@ TreeNode* DecisionTree::RecursiveBuild(int32_t depth,
       &left_partition, &right_partition);
 
   // Remove split_feature_id from available_feature_ids.
+  std::vector<int32_t> available_feature_ids_copy = available_feature_ids;
   available_feature_ids_copy[split_feature_idx] =
     available_feature_ids_copy[available_feature_ids.size() - 1];
   available_feature_ids_copy.pop_back();
@@ -232,12 +245,14 @@ void DecisionTree::Serialize(TreeNode *p, std::string &out) {
     out += "# ";
   } else {
     if (p->GetFeatureId() != -1) {
-      std::string str_node = std::to_string(p->GetFeatureId()) + ":" + std::to_string(p->GetSplitVal()) + " ";
+      std::string str_node = std::to_string(p->GetFeatureId()) + ":" +
+        std::to_string(p->GetSplitVal()) + " ";
       out += str_node;
       Serialize(p->GetLeftChild(), out);
-      Serialize(p->GetRightChild(), out);     
+      Serialize(p->GetRightChild(), out);
     } else {
-      std::string str_node = std::to_string(p->GetFeatureId()) + ":" + std::to_string(p->GetLeafVal()) + " ";
+      std::string str_node = std::to_string(p->GetFeatureId()) + ":" +
+        std::to_string(p->GetLeafVal()) + " ";
       out += str_node;
     }
   }

@@ -25,6 +25,8 @@ DECLARE_int32(num_trees);
 DECLARE_int32(max_depth);
 DECLARE_int32(num_data_subsample);
 DECLARE_int32(num_features_subsample);
+DECLARE_int32(num_feat_split_vals);
+DECLARE_int32(num_stop_split);
 
 // Save and Load
 DECLARE_bool(save_pred);

@@ -12,6 +12,7 @@
 #include "split_finder.hpp"
 #include <string>
 #include <sstream>
+#include "sampler.hpp"
 
 namespace tree {
 
@@ -39,10 +40,10 @@ struct DecisionTreeConfig {
 
 class DecisionTree {
 public:
-  DecisionTree() : features_(0), labels_(0) { };
+  DecisionTree();
   
   // Construct a tree from string of serialized tree
-  DecisionTree(std::string input);
+  DecisionTree(const std::string& input);
 
   // Construct the decision tree.
   void Init(const DecisionTreeConfig& config);
@@ -91,6 +92,7 @@ private:
   const std::vector<petuum::ml::AbstractFeature<float>*>* features_;
   const std::vector<int32_t>* labels_;
   int32_t num_data_;
+  Sampler sampler_;
 
   std::unique_ptr<TreeNode> root_;
 

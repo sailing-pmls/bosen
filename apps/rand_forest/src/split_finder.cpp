@@ -1,6 +1,7 @@
 // Author: Jiesi Zhao (jiesizhao0423@gmail.com), Wei Dai (wdai@cs.cmu.edu)
 // Date: 2014.11.5
 
+#include "common.hpp"
 #include "split_finder.hpp"
 #include "utils.hpp"
 #include <algorithm>
@@ -39,7 +40,6 @@ void SplitFinder::AddInstanceDedup(float feature_val,
 }
 
 float SplitFinder::FindSplitValue(float* gain_ratio) {
-  SortEntries();
   // Compute entropy of label
   std::vector<float> label_distribution(num_labels_, 0);
   for (auto iter = entries_.begin(); iter != entries_.end(); ++iter) {
@@ -48,19 +48,9 @@ float SplitFinder::FindSplitValue(float* gain_ratio) {
   Normalize(&label_distribution);
   pre_split_entropy_ = ComputeEntropy(label_distribution);
 
-  float min_value = entries_.begin()->feature_val;
-  float max_value = entries_.back().feature_val;
-
-  // Find distinct feature values
-  std::vector<float> feature_value_dist;
-  feature_value_dist.push_back(min_value);
-  if (max_value > min_value) { 
-    for (int i = 1; i < entries_.size(); i++) {
-      if (entries_[i].feature_val > feature_value_dist.back()) {
-        feature_value_dist.push_back(entries_[i].feature_val);
-      }
-    }    
-  }
+  float min_value = std::numeric_limits<float>::max();
+  float max_value = std::numeric_limits<float>::min();
+  FindMinMaxFeature(&min_value, &max_value);
 
   std::random_device rd;
   std::mt19937 mt(rd());
@@ -68,7 +58,7 @@ float SplitFinder::FindSplitValue(float* gain_ratio) {
 
   float best_gain_ratio = std::numeric_limits<float>::min();
   float best_split_val = min_value;
-  for (int i = 0; i < feature_value_dist.size(); ++i) {
+  for (int i = 0; i < FLAGS_num_feat_split_vals; ++i) {
       // Randomly generate a split threshold
       float rand_split = dist(mt);
       float gain_ratio = ComputeGainRatio(rand_split);
@@ -86,11 +76,15 @@ float SplitFinder::FindSplitValue(float* gain_ratio) {
 
 // ================== Private Functions ===============
 
-void SplitFinder::SortEntries() {
-  std::sort(entries_.begin(), entries_.end(),
-      [] (const FeatureEntry& i, const FeatureEntry& j) {
-      return (i.feature_val < j.feature_val ||
-        (i.feature_val == j.feature_val && i.label < j.label)); });
+void SplitFinder::FindMinMaxFeature(float *min_value, float *max_value) {
+  for (int i = 0; i < entries_.size(); ++i) {
+    if (*min_value > entries_[i].feature_val) {
+      *min_value = entries_[i].feature_val;
+    }
+    if (*max_value < entries_[i].feature_val) {
+      *max_value = entries_[i].feature_val;
+    }
+  }
 }
 
 float SplitFinder::ComputeGainRatio(float split_val) {
@@ -98,13 +92,13 @@ float SplitFinder::ComputeGainRatio(float split_val) {
   std::vector<float> right_dist(num_labels_);
   float left_dist_weight = 0.;
   float right_dist_weight = 0.;
-  for (auto iter = entries_.begin(); iter != entries_.end(); ++iter) {
-    if (iter->feature_val <= split_val) {
-      left_dist[iter->label] += iter->weight;
-      left_dist_weight += iter->weight;
+  for (int i = 0; i < entries_.size(); ++i) {
+    if (entries_[i].feature_val <= split_val) {
+      left_dist[entries_[i].label] += entries_[i].weight;
+      left_dist_weight += entries_[i].weight;
     } else {
-      right_dist[iter->label] += iter->weight;
-      right_dist_weight += iter->weight;
+      right_dist[entries_[i].label] += entries_[i].weight;
+      right_dist_weight += entries_[i].weight;
     }
   }
 

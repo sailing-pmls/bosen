@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iterator>
 #include <algorithm>
+#include <petuum_ps_common/include/petuum_ps.hpp>
 
 namespace tree {
 
@@ -205,26 +206,22 @@ void RandForestEngine::Start() {
   if (thread_id == 0) {
     float train_error = EvaluateErrorLocal(rand_forest,
         train_features_, train_labels_);
-    LOG(INFO) << "client " << FLAGS_client_id << " train error: "
+    LOG(INFO) << "Approximate train error: "
       << train_error << " (evaluated on "
-      << num_train_data_ << " training data)";
+      << num_train_data_ << " training data on thread 0 of each client.)";
   }
 
   // Test error.
   if (perform_test_) {
-    float test_error = VoteOnTestData(rand_forest);
+    VoteOnTestData(rand_forest);
     petuum::PSTableGroup::GlobalBarrier();
-    // Evaluating test error on one thread of each machine.
-    if (thread_id == 0) {
-      LOG(INFO) << "client " << FLAGS_client_id << " test error: "
-        << test_error << " (evaluated on "
-        << num_test_data_ << " test data)";
-    }
     // Evaluating overall test error
     if (FLAGS_client_id == 0 && thread_id == 0) {
+      petuum::HighResolutionTimer test_timer;
       float test_error = ComputeTestError();
       LOG(INFO) << "Test error: " << test_error
-        << " computed on " << test_features_.size() << " test instances.";
+        << " computed on " << test_features_.size() << " test instances in "
+        << test_timer.elapsed() << " seconds";
     }
   }
 

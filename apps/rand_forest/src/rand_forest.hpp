@@ -43,6 +43,7 @@ public:
   int32_t Predict(const petuum::ml::AbstractFeature<float>& x,
       std::vector<int32_t>* votes = 0) const;
 
+  ~RandForest();
 private:
   int32_t client_id_;
 
