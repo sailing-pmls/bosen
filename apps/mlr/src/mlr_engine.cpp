@@ -3,6 +3,8 @@
 
 #include "mlr_engine.hpp"
 #include "mlr_sgd_solver.hpp"
+#include "lr_sgd_solver.hpp"
+#include "abstract_mlr_sgd_solver.hpp"
 #include "common.hpp"
 #include <string>
 #include <cmath>
@@ -19,7 +21,7 @@ namespace mlr {
 namespace {
 
 // Save MLRSGDSolver::w_cache_ to disk. Could be time consuming if w is large.
-void SaveWeights(MLRSGDSolver* mlr_solver) {
+void SaveWeights(AbstractMLRSGDSolver* mlr_solver) {
   // Save weights.
   CHECK(!FLAGS_output_file_prefix.empty());
   std::string output_filename = FLAGS_output_file_prefix + ".weight";
@@ -170,14 +172,27 @@ void MLREngine::Start() {
   }
 
   // Create MLR sgd solver.
-  MLRSGDSolverConfig solver_config;
-  solver_config.feature_dim = feature_dim_;
-  solver_config.num_labels = num_labels_;
-  solver_config.sparse_data = (read_format_ == "libsvm");
-  solver_config.sparse_weight = FLAGS_sparse_weight;
-  solver_config.w_table = w_table_;
-  MLRSGDSolver mlr_solver(solver_config);
-  mlr_solver.RefreshParams();
+  std::unique_ptr<AbstractMLRSGDSolver> mlr_solver;
+  if (num_labels_ == 2) {
+    // Create LR sgd solver.
+    LRSGDSolverConfig solver_config;
+    solver_config.feature_dim = feature_dim_;
+    solver_config.sparse_data = read_format_ == "libsvm";
+    solver_config.w_table = w_table_;
+    solver_config.lambda = FLAGS_lambda;
+    solver_config.w_table_num_cols = FLAGS_w_table_num_cols;
+    mlr_solver.reset(new LRSGDSolver(solver_config));
+  } else {
+    MLRSGDSolverConfig solver_config;
+    solver_config.feature_dim = feature_dim_;
+    solver_config.num_labels = num_labels_;
+    solver_config.sparse_data = (read_format_ == "libsvm");
+    solver_config.w_table = w_table_;
+    solver_config.w_table_num_cols = FLAGS_w_table_num_cols;
+    CHECK_EQ(0, FLAGS_lambda) << "regularization isn't supported in MLR yet.";
+    mlr_solver.reset(new MLRSGDSolver(solver_config));
+  }
+  mlr_solver->RefreshParams();
 
   petuum::HighResolutionTimer total_timer;
   petuum::ml::WorkloadManagerConfig workload_mgr_config;
@@ -217,59 +232,59 @@ void MLREngine::Start() {
     float curr_learning_rate = learning_rate * pow(decay_rate, epoch);
     workload_mgr.Restart();
     while (!workload_mgr.IsEnd()) {
-      int32_t data_idx = workload_mgr.GetDataIdxAndAdvance();
-      mlr_solver.SingleDataSGD(*train_features_[data_idx],
-          train_labels_[data_idx], curr_learning_rate);
-      if (workload_mgr.IsEndOfBatch()) {
-        petuum::PSTableGroup::Clock();
-        mlr_solver.RefreshParams();
-        ++batch_counter;
-        //LOG_EVERY_N(INFO, 10) << "batch: " << batch_counter;
+      std::vector<int> minibatch_idx(workload_mgr.GetBatchSize());
+      for (int i = 0; i < minibatch_idx.size(); ++i) {
+        minibatch_idx[i] = workload_mgr.GetDataIdxAndAdvance();
+      }
+      mlr_solver->MiniBatchSGD(train_features_,
+          train_labels_, minibatch_idx, curr_learning_rate);
 
-        if (batch_counter % num_batches_per_eval == 0) {
-          petuum::HighResolutionTimer eval_timer;
-          ComputeTrainError(&mlr_solver, &workload_mgr_train_error,
-              num_train_eval_, eval_counter);
-          if (perform_test_) {
-            ComputeTestError(&mlr_solver, &test_workload_mgr,
-                num_test_eval, eval_counter);
-          }
-          if (client_id == 0 && thread_id == 0) {
-            loss_table_.Inc(eval_counter, kColIdxLossTableEpoch, epoch + 1);
-            loss_table_.Inc(eval_counter, kColIdxLossTableBatch,
-                batch_counter);
-            loss_table_.Inc(eval_counter, kColIdxLossTableTime,
-                total_timer.elapsed());
+      CHECK(workload_mgr.IsEndOfBatch());
+      petuum::PSTableGroup::Clock();
+      mlr_solver->RefreshParams();
+      ++batch_counter;
 
-            if (eval_counter > loss_table_staleness) {
-              // Print the last eval info to overcome staleness.
-              LOG(INFO) << PrintOneEval(eval_counter - loss_table_staleness - 1);
-              if (checkpoint_timer.elapsed() > num_secs_per_checkpoint) {
-                petuum::HighResolutionTimer save_disk_timer;
-                LOG(INFO) << "SaveLoss now...";
-                SaveLoss(eval_counter - loss_table_staleness - 1);
-                SaveWeights(&mlr_solver);
-                checkpoint_timer.restart();
-                LOG(INFO) << "Checkpointing finished in "
-                  << save_disk_timer.elapsed();
-              }
-            }
-            LOG(INFO) << "Eval #" << eval_counter << " finished in "
-              << eval_timer.elapsed();
-          }
-          ++eval_counter;
+      if (batch_counter % num_batches_per_eval == 0) {
+        petuum::HighResolutionTimer eval_timer;
+        ComputeTrainError(mlr_solver.get(), &workload_mgr_train_error,
+            num_train_eval_, eval_counter);
+        if (perform_test_) {
+          ComputeTestError(mlr_solver.get(), &test_workload_mgr,
+              num_test_eval, eval_counter);
         }
+        if (client_id == 0 && thread_id == 0) {
+          loss_table_.Inc(eval_counter, kColIdxLossTableEpoch, epoch + 1);
+          loss_table_.Inc(eval_counter, kColIdxLossTableBatch,
+              batch_counter);
+          loss_table_.Inc(eval_counter, kColIdxLossTableTime,
+              total_timer.elapsed());
+
+          if (eval_counter > loss_table_staleness) {
+            // Print the last eval info to overcome staleness.
+            LOG(INFO) << PrintOneEval(eval_counter - loss_table_staleness - 1);
+            if (checkpoint_timer.elapsed() > num_secs_per_checkpoint) {
+              petuum::HighResolutionTimer save_disk_timer;
+              LOG(INFO) << "SaveLoss now...";
+              SaveLoss(eval_counter - loss_table_staleness - 1);
+              SaveWeights(mlr_solver.get());
+              checkpoint_timer.restart();
+              LOG(INFO) << "Checkpointing finished in "
+                << save_disk_timer.elapsed();
+            }
+          }
+        }
+        ++eval_counter;
       }
     }
     CHECK_EQ(0, batch_counter % num_batches_per_epoch);
   }
   petuum::PSTableGroup::GlobalBarrier();
   // Use all the train data in the last training error eval.
-  ComputeTrainError(&mlr_solver, &workload_mgr_train_error,
+  ComputeTrainError(mlr_solver.get(), &workload_mgr_train_error,
       num_train_data_, eval_counter);
   if (perform_test_) {
     // Use the whole test set in the end.
-    ComputeTestError(&mlr_solver, &test_workload_mgr,
+    ComputeTestError(mlr_solver.get(), &test_workload_mgr,
         num_test_data_, eval_counter);
   }
   petuum::PSTableGroup::GlobalBarrier();
@@ -282,12 +297,12 @@ void MLREngine::Start() {
     LOG(INFO) << std::endl << PrintAllEval(eval_counter);
     LOG(INFO) << "Final eval: " << PrintOneEval(eval_counter);
     SaveLoss(eval_counter);
-    SaveWeights(&mlr_solver);
+    SaveWeights(mlr_solver.get());
   }
   petuum::PSTableGroup::DeregisterThread();
 }
 
-void MLREngine::ComputeTrainError(MLRSGDSolver* mlr_solver,
+void MLREngine::ComputeTrainError(AbstractMLRSGDSolver* mlr_solver,
     petuum::ml::WorkloadManager* workload_mgr, int32_t num_data_to_use,
     int32_t ith_eval) {
   float total_zero_one_loss = 0.;
@@ -312,7 +327,7 @@ void MLREngine::ComputeTrainError(MLRSGDSolver* mlr_solver,
 }
 
 
-void MLREngine::ComputeTestError(MLRSGDSolver* mlr_solver,
+void MLREngine::ComputeTestError(AbstractMLRSGDSolver* mlr_solver,
     petuum::ml::WorkloadManager* test_workload_mgr,
     int32_t num_data_to_use, int32_t ith_eval) {
   test_workload_mgr->Restart();

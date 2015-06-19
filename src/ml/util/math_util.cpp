@@ -23,6 +23,10 @@ float SafeLog(float x) {
   return fastlog(x);
 }
 
+float Sigmoid(float x) {
+  return 1. / (1. + exp(-x));
+}
+
 float LogSum(float log_a, float log_b) {
   return (log_a < log_b) ? log_b + fastlog(1 + fastexp(log_a - log_b)) :
     log_a + fastlog(1 + fastexp(log_b-log_a));
@@ -69,10 +73,21 @@ float DenseDenseFeatureDotProduct(const AbstractFeature<float>& f1,
 
 float DenseSparseFeatureDotProduct(const AbstractFeature<float>& f1,
     const AbstractFeature<float>& f2) {
-  return SparseAnyFeatureDotProduct(f2, f1);
+  return SparseDenseFeatureDotProduct(f2, f1);
 }
 
-float SparseAnyFeatureDotProduct(const AbstractFeature<float>& f1,
+float SparseDenseFeatureDotProduct(const AbstractFeature<float>& f1,
+    const AbstractFeature<float>& f2) {
+  CHECK_EQ(f1.GetFeatureDim(), f2.GetFeatureDim());
+  float sum = 0.;
+  for (int i = 0; i < f1.GetNumEntries(); ++i) {
+    int32_t f1_fid = f1.GetFeatureId(i);
+    sum += f1.GetFeatureVal(i) * f2[f1_fid];
+  }
+  return sum;
+}
+
+float SparseSparseFeatureDotProduct(const AbstractFeature<float>& f1,
     const AbstractFeature<float>& f2) {
   CHECK_EQ(f1.GetFeatureDim(), f2.GetFeatureDim());
   int j = 0;

@@ -27,6 +27,8 @@ std::string VectorToString(const std::vector<V>& v) {
 // Apply cutoff for x -> 0.
 float SafeLog(float x);
 
+float Sigmoid(float x);
+
 // Compute log(a + b) from log(a) and log(b) using the identity
 // log(a + b) = log(a) + log(1 + (b/a))
 float LogSum(float log_a, float log_b);
@@ -47,11 +49,14 @@ float DenseDenseFeatureDotProduct(const AbstractFeature<float>& f1,
 float DenseSparseFeatureDotProduct(const AbstractFeature<float>& f1,
     const AbstractFeature<float>& f2);
 
+float SparseDenseFeatureDotProduct(const AbstractFeature<float>& f1,
+    const AbstractFeature<float>& f2);
+
 // If f1 is dense and f2 is sparse, it is 3x slower than the other way around.
 //
 // Comment (wdai): If we swap the two based on GetNumEntries(), it is about 15%
 // slower than sparse-dense version.
-float SparseAnyFeatureDotProduct(const AbstractFeature<float>& f1,
+float SparseSparseFeatureDotProduct(const AbstractFeature<float>& f1,
     const AbstractFeature<float>& f2);
 
 // DenseFeature specialization.

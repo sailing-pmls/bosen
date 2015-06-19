@@ -1,5 +1,5 @@
 // Author: Dai Wei (wdai@cs.cmu.edu)
-// Date: 2014.10.04
+// Date: 2015.02.04
 
 #pragma once
 
@@ -7,28 +7,32 @@
 #include <ml/include/ml.hpp>
 #include <cstdint>
 #include <vector>
-#include <functional>
 #include "abstract_mlr_sgd_solver.hpp"
 
 namespace mlr {
 
-struct MLRSGDSolverConfig {
+struct LRSGDSolverConfig {
   int32_t feature_dim;
-  int32_t num_labels;
+
+  petuum::Table<float> w_table;
   int32_t w_table_num_cols;
   bool sparse_data = true;
-  petuum::Table<float> w_table;
+
+  float lambda = 0;   // l2 regularization parameter
 };
 
-// The caller thread must be registered with PS.
-class MLRSGDSolver : public AbstractMLRSGDSolver {
+// Binary solver. Does not support sparse LR parameters. Labels y \ in {0, 1}.
+// NOT {-1, 1}
+class LRSGDSolver : public AbstractMLRSGDSolver {
 public:
-  MLRSGDSolver(const MLRSGDSolverConfig& config);
+  LRSGDSolver(const LRSGDSolverConfig& config);
 
- void MiniBatchSGD(
+  // Compute gradient using on data pointed by idx and store gradient
+  // internally.
+  void MiniBatchSGD(
       const std::vector<petuum::ml::AbstractFeature<float>*>& features,
-      const std::vector<int32_t>& labels,
-      const std::vector<int32_t>& idx, double lr) override;
+      const std::vector<int32_t>& label, const std::vector<int32_t>& idx,
+      double lr);
 
   // Predict the probability of each label.
   std::vector<float> Predict(
@@ -53,19 +57,23 @@ public:
 
   float EvaluateL2RegLoss() const;
 
+  // Apply L2 decay if applicable.
+  void Update(double batch_learning_rate);
+
 private:
   // ======== PS Tables ==========
   // The weight of each class (stored as single feature-major row).
   petuum::Table<float> w_table_;
 
   // Thread-cache.
-  std::vector<petuum::ml::DenseFeature<float>> w_cache_;
-  std::vector<std::vector<float>> w_cache_old_;
+  petuum::ml::DenseFeature<float> w_cache_;
+  std::vector<float> w_cache_old_;
+  //petuum::ml::DenseDecayFeature<float> w_delta_;
 
   int32_t feature_dim_; // feature dimension
+  // feature_dim % w_table_num_cols might not be 0
   int32_t w_table_num_cols_;  // # of cols in w_table.
-  int32_t num_labels_; // number of classes/labels
-  int32_t w_dim_;       // dimension of w_table_ = feature_dim_ * num_labels_.
+  float lambda_;   // l2 regularization parameter
 
   // Specialization Functions
   std::function<float(const petuum::ml::AbstractFeature<float>&,

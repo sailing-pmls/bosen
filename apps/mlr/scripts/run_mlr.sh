@@ -17,15 +17,16 @@ num_train_data=0  # 0 to use all training data.
 
 # Execution parameters:
 num_epochs=40
-num_batches_per_epoch=300
+num_batches_per_epoch=30
 learning_rate=0.01
-decay_rate=0.95
-num_batches_per_eval=300
+decay_rate=0.99
+num_batches_per_eval=30
 num_train_eval=10000   # large number to use all data.
 num_test_eval=20
+lambda=0  # Currently only supported for binary LR.
 
 # System parameters:
-host_filename="scripts/localserver"
+host_filename="../../machinefiles/localserver"
 num_app_threads=4
 staleness=0
 loss_table_staleness=0
@@ -40,8 +41,7 @@ prog_path=$app_dir/bin/${progname}
 host_file=$(readlink -f $host_filename)
 
 ssh_options="-oStrictHostKeyChecking=no \
--oUserKnownHostsFile=/dev/null \
--oLogLevel=quiet"
+-oUserKnownHostsFile=/dev/null "
 
 # Parse hostfile
 host_list=`cat $host_file | awk '{ print $2 }'`
@@ -99,6 +99,7 @@ for ip in $unique_host_list; do
       --use_weight_file=$use_weight_file \
       --weight_file=$weight_file \
       --sparse_weight=false \
+      --lambda=${lambda} \
       --output_file_prefix=$output_file_prefix"
 
   ssh $ssh_options $ip $cmd &

@@ -50,13 +50,13 @@ private:  // functions
 
   // Compute the classification error on the test set. This
   // is distributed. This will reset test_workload_mgr.
-  void ComputeTestError(MLRSGDSolver* mlr_solver,
+  void ComputeTestError(AbstractMLRSGDSolver* mlr_solver,
     petuum::ml::WorkloadManager* test_workload_mgr,
     int32_t num_data_to_use, int32_t ith_eval);
 
   // Compute online training error based on the first num_data_to_use. This
   // will reset workload_mgr.
-  void ComputeTrainError(MLRSGDSolver* solver,
+  void ComputeTrainError(AbstractMLRSGDSolver* solver,
       petuum::ml::WorkloadManager* workload_mgr, int32_t num_data_to_use,
       int32_t ith_eval);
 

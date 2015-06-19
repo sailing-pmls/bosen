@@ -30,7 +30,7 @@ PETUUM_CXXFLAGS += -DPETUUM_STATS
 PETUUM_INCFLAGS = -I$(PETUUM_SRC) -I$(PETUUM_THIRD_PARTY_INCLUDE)
 PETUUM_LDFLAGS = -Wl,-rpath,$(PETUUM_THIRD_PARTY_LIB) \
           -L$(PETUUM_THIRD_PARTY_LIB) \
-          -pthread -lrt -lnsl -luuid \
+          -pthread -lrt -lnsl \
           -lzmq \
           -lboost_thread \
           -lboost_system \
