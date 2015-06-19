@@ -49,7 +49,6 @@ DEFINE_int32(num_batches_per_epoch, 10, "Since we Clock() at the end of each bat
 DEFINE_double(learning_rate, 0.1, "Initial step size");
 DEFINE_double(decay_rate, 1, "multiplicative decay");
 DEFINE_int32(num_batches_per_eval, 10, "Number of batches per evaluation");
-DEFINE_bool(sparse_weight, false, "Use sparse feature for model parameters");
 DEFINE_double(lambda, 0, "L2 regularization parameter.");
 
 // Misc
@@ -68,7 +67,6 @@ DEFINE_int32(w_table_num_cols, 1000000,
     "# of columns in w_table. Only used for binary LR.");
 
 const int32_t kDenseRowFloatTypeID = 0;
-const int32_t kSparseFeatureRowFloatTypeID = 1;
 
 int main(int argc, char *argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
@@ -106,19 +104,14 @@ int main(int argc, char *argv[]) {
 
   petuum::PSTableGroup::RegisterRow<petuum::DenseRow<float> >
     (kDenseRowFloatTypeID);
-  petuum::PSTableGroup::RegisterRow<petuum::SparseFeatureRow<float> >
-    (kSparseFeatureRowFloatTypeID);
 
   // Use false to disallow main thread to access table API.
   petuum::PSTableGroup::Init(table_group_config, false);
 
   // Creating weight table: one row per label.
   petuum::ClientTableConfig table_config;
-  if (FLAGS_sparse_weight) {
-    table_config.table_info.row_type = kSparseFeatureRowFloatTypeID;
-  } else {
-    table_config.table_info.row_type = kDenseRowFloatTypeID;
-  }
+  table_config.table_info.row_type = kDenseRowFloatTypeID;
+
   table_config.table_info.table_staleness = FLAGS_staleness;
   table_config.table_info.row_capacity =
     std::min(FLAGS_w_table_num_cols, feature_dim);

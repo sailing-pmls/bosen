@@ -98,7 +98,6 @@ for ip in $unique_host_list; do
       --stats_path=${output_dir}/mlr_stats.yaml \
       --use_weight_file=$use_weight_file \
       --weight_file=$weight_file \
-      --sparse_weight=false \
       --lambda=${lambda} \
       --output_file_prefix=$output_file_prefix"
 
