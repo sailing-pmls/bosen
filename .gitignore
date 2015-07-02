@@ -1,0 +1,64 @@
+#third_party/
+#defns.mk   # Only track defns.mk.template
+third_party/bin
+third_party/include
+third_party/src
+third_party/share
+third_party/lib
+
+# Only include defns.mk.template in repo
+defns.mk
+
+# Gradle stuff
+.gradle
+build/
+
+# Ignore Gradle GUI config
+gradle-app.setting
+
+# # Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
+!gradle-wrapper.jar
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Java gitignore
+*.class
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files #
+*.jar
+*.war
+*.ear
+
+# virtual machine crash logs, see
+http://www.java.com/en/download/help/error_hotspot.xml
+hs_err_pid*

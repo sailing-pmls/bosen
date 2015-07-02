@@ -1,0 +1,2 @@
+systemProp.https.proxyHost=ops
+systemProp.https.proxyPort=8888

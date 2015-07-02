@@ -1,0 +1,15 @@
+net: "/home/zhitingh/caffe-googlenet/models/bvlc_googlenet/train_test.prototxt"
+test_iter: 50 #1000
+test_interval: 500 #4000
+test_initialization: true
+display: 50 #40
+#average_loss: 40
+base_lr: 0.002 #0.01
+lr_policy: "poly"
+power: 0.5
+max_iter: 1000 #2400000
+momentum: 0.9
+weight_decay: 0.0002
+snapshot: 1000 #40000
+snapshot_prefix: "/home/zhitingh/caffe-googlenet/models/bvlc_googlenet/bvlc_googlenet_quick"
+solver_mode: CPU

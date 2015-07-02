@@ -1,0 +1,18 @@
+apply plugin: 'java'
+
+version = '0.5'
+
+repositories {
+    jcenter()
+    mavenCentral()
+}
+
+dependencies {
+  compile 'org.slf4j:jcl-over-slf4j:1.7.2'
+	compile 'commons-io:commons-io:2.1'
+	compile 'org.apache.hadoop:hadoop-yarn-server-tests:2.4.0'
+	compile 'org.apache.hadoop:hadoop-common:2.4.0'
+	compile 'org.apache.hadoop:hadoop-mapreduce-client-core:2.4.0'
+	compile 'org.apache.hadoop:hadoop-yarn-client:2.4.0'
+	compile 'junit:junit:4.10'
+}

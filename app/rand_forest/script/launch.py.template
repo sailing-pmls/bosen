@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+
+import os
+from os.path import dirname, join
+import time
+
+hostfile_name = "localserver"
+
+app_dir = dirname(dirname(os.path.realpath(__file__)))
+proj_dir = dirname(dirname(app_dir))
+
+hostfile = join(proj_dir, "machinefiles", hostfile_name)
+
+ssh_cmd = (
+    "ssh "
+    "-o StrictHostKeyChecking=no "
+    "-o UserKnownHostsFile=/dev/null "
+    )
+
+params = {
+    "train_file": join(app_dir, "dataset/iris.train")
+    , "test_file": join(app_dir, "dataset/iris.test")
+    , "global_data": "true"
+    , "perform_test": "true"
+    , "max_depth": 5
+    , "num_data_subsample": 20
+    , "num_features_subsample": 2
+    , "num_trees": 500
+    , "load_trees": "false"
+    , "input_file": join(app_dir, "output", "forest.model.part0")
+    , "save_pred": "true"
+    , "pred_file": join(app_dir, "output", "prediction")
+    , "save_trees": "true"
+    , "output_file": join(app_dir, "output", "forest.model")
+    }
+
+petuum_params = {
+    "hostfile": hostfile
+    , "num_app_threads": 4
+    , "num_comm_channels_per_client": 1 # 1~2 are usually enough.
+    }
+
+prog_name = "rand_forest_main"
+prog_path = join(app_dir, "bin", prog_name)
+
+env_params = (
+  "GLOG_logtostderr=true "
+  "GLOG_v=-1 "
+  "GLOG_minloglevel=0 "
+  )
+
+# Get host IPs
+with open(hostfile, "r") as f:
+  hostlines = f.read().splitlines()
+host_ips = [line.split()[1] for line in hostlines]
+petuum_params["num_clients"] = len(host_ips)
+
+# os.system is synchronous call.
+os.system("killall -q " + prog_name)
+print "Done killing"
+
+if not params["output_file"].startswith("hdfs://"):
+  os.system("mkdir -p " + join(app_dir, "output"))
+
+for client_id, ip in enumerate(host_ips):
+  petuum_params["client_id"] = client_id
+  cmd = ssh_cmd + ip + " "
+  #cmd += "export CLASSPATH=`hadoop classpath --glob`:$CLASSPATH; "
+  cmd += env_params + " " + prog_path
+  cmd += "".join([" --%s=%s" % (k,v) for k,v in petuum_params.items()])
+  cmd += "".join([" --%s=%s" % (k,v) for k,v in params.items()])
+  cmd += " &"
+  print cmd
+  os.system(cmd)
+
+  if client_id == 0:
+    print "Waiting for first client to set up"
+    time.sleep(2)

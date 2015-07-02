@@ -1,0 +1,1 @@
+python /home/wanghy/petuum/public/apps/hello_ssp/script/run_hellossp_on_yarn.py $1 $2
