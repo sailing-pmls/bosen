@@ -28,7 +28,7 @@ params = {
     , "input_data_format": "text"
     , "output_data_format": "text"
     , "output_path": join(app_dir, "sample/output")
-    #, "output_path": "hdfs://hdfs-domain/user/bosen/dataset/nmf/sample/output"
+    #, "output_path": "hdfs://hdfs-domain/user/bosen/dataset/sc/sample/output"
     , "dictionary_size": 6
     , "m": 5
     , "n": 100
@@ -55,7 +55,7 @@ params = {
     , "table_staleness": 0
     , "maximum_running_time": 0.0
      , "data_file": join(app_dir, "sample/data/sample.txt")
-    #, "data_file": "hdfs://hdfs-domain/user/bosen/dataset/nmf/sample/data/sample.txt"
+    #, "data_file": "hdfs://hdfs-domain/user/bosen/dataset/sc/sample/data/sample.txt"
     , "cache_path": join(app_dir, "N/A")
     }
 
