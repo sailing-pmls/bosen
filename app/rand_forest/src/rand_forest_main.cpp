@@ -131,12 +131,12 @@ int main(int argc, char *argv[]) {
   petuum::ClientTableConfig table_config;
   table_config.table_info.row_type = kDenseRowIntTypeID;
   table_config.table_info.table_staleness = 0;
-  table_config.table_info.row_capacity = num_labels;
+  table_config.table_info.row_capacity = num_test_data;
   table_config.table_info.row_oplog_type = FLAGS_row_oplog_type;
   table_config.table_info.oplog_dense_serialized =
     FLAGS_oplog_dense_serialized;
-  // each test data is a row.
-  table_config.process_cache_capacity = num_test_data;
+  // each test label is a row.
+  table_config.process_cache_capacity = num_labels;
   table_config.oplog_capacity = table_config.process_cache_capacity;
   petuum::PSTableGroup::CreateTable(FLAGS_test_vote_table_id, table_config);
 

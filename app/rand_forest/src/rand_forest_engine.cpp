@@ -224,9 +224,11 @@ void RandForestEngine::Start() {
     }
     // Evaluating overall test error
     if (FLAGS_client_id == 0 && thread_id == 0) {
+      petuum::HighResolutionTimer test_timer;
       float test_error = ComputeTestError();
       LOG(INFO) << "Test error: " << test_error
-        << " computed on " << test_features_.size() << " test instances.";
+        << " computed on " << test_features_.size() << " test instances in "
+        << test_timer.elapsed() << " seconds";
     }
   }
 
@@ -249,17 +251,22 @@ float RandForestEngine::EvaluateErrorLocal(const RandForest& rand_forest,
 
 float RandForestEngine::VoteOnTestData(const RandForest& rand_forest) {
   float error = 0.;
+  std::vector<petuum::UpdateBatch<int>> updates(num_labels_);
+  for (int j = 0; j < num_labels_; ++j) {
+    updates[j] = petuum::UpdateBatch<int>(test_features_.size());
+  }
   for (int i = 0; i < test_features_.size(); ++i) {
     std::vector<int> votes;
     const petuum::ml::AbstractFeature<float>& x = *(test_features_[i]);
     int pred_label = rand_forest.Predict(x, &votes);
     error += (test_labels_[i] == pred_label) ? 0 : 1.;
     // add votes to test_vote_table_
-    petuum::UpdateBatch<int> vote_update_batch(num_labels_);
     for (int j = 0; j < num_labels_; ++j) {
-      vote_update_batch.UpdateSet(j, j, votes[j]);
+      updates[j].UpdateSet(i, i, votes[j]);
     }
-    test_vote_table_.BatchInc(i, vote_update_batch);
+  }
+  for (int j = 0; j < num_labels_; ++j) {
+    test_vote_table_.BatchInc(j, updates[j]);
   }
   return error / test_features_.size();
 }
@@ -282,23 +289,24 @@ float RandForestEngine::ComputeTestError() {
   int num_trees = 0;
 
   // Save predict result to file
-  // std::ofstream fpred;
   petuum::io::ofstream *fpred = NULL;
   if (save_pred_) {
-    // fpred.open(pred_file_, std::ios::out);
     fpred = new petuum::io::ofstream(pred_file_);
     CHECK(fpred != NULL) << "Cannot open prediction output file ";
   }
 
-  for (int i = 0; i < test_features_.size(); ++i) {
+  std::vector<std::vector<int>> test_votes(num_labels_);
+  for (int j = 0; j < num_labels_; ++j) {
     petuum::RowAccessor row_acc;
-    test_vote_table_.Get(i, &row_acc);
+    test_vote_table_.Get(j, &row_acc);
     const auto& test_vote_row = row_acc.Get<petuum::DenseRow<int> >();
-    std::vector<int> test_votes;
-    test_vote_row.CopyToVector(&test_votes);
+    test_vote_row.CopyToVector(&test_votes[j]);
+    num_trees += test_votes[j][0];
+  }
+  for (int i = 0; i < test_features_.size(); ++i) {
     int max_label = 0;
     for (int j = 1; j < num_labels_; ++j) {
-      if (test_votes[max_label] < test_votes[j]) {
+      if (test_votes[max_label][i] < test_votes[j][i]) {
         max_label = j;
       }
     }
@@ -307,11 +315,6 @@ float RandForestEngine::ComputeTestError() {
     }
 
     error += (test_labels_[i] == max_label) ? 0 : 1.;
-    if (i == 0) {
-      num_trees = SumVector(test_votes);
-    } else {
-      CHECK_EQ(num_trees, SumVector(test_votes));
-    }
   }
   LOG(INFO) << "Test using " << num_trees << " trees.";
   if (fpred) {
