@@ -26,10 +26,10 @@ solver_filename="${app_dir}/models/bvlc_googlenet/solver.prototxt"
 num_app_threads=1
 num_table_threads=$(( num_app_threads + 1 ))
 param_table_staleness=0
-num_comm_channels_per_client=1
+num_comm_channels_per_client=8
 num_rows_per_table=32
 consistency_model="SSPPush"
-svb=false
+svb=true
 
 ##=====================================
 

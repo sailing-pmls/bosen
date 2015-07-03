@@ -1,12 +1,12 @@
 net: "CAFFE_ROOT/models/bvlc_alexnet/train_val.prototxt"
-test_iter: 1
+test_iter: 1000
 test_interval: 1000
-base_lr: 0.002
+base_lr: 0.005
 lr_policy: "step"
 gamma: 0.1
-stepsize: 100000
+stepsize: 15000
 display: 20
-max_iter: 450000
+max_iter: 45000
 momentum: 0.9
 weight_decay: 0.0005
 snapshot: 10000
