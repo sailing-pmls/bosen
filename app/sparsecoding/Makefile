@@ -30,6 +30,8 @@ UTIL_SRC = $(wildcard $(SPARSECODING_DIR)/src/util/*.cpp)
 UTIL_HDR = $(wildcard $(SPARSECODING_DIR)/src/util/*.hpp)
 UTIL_OBJ = $(UTIL_SRC:.cpp=.o)
 
+PETUUM_CXXFLAGS += -static-libstdc++
+
 all: sparsecoding_main
 
 sparsecoding_main: $(SPARSECODING_BIN)/sparsecoding_main

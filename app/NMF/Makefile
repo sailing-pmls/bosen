@@ -19,6 +19,8 @@ PETUUM_CXXFLAGS += -DMAXELEVAL=100000
 # This bound is to prevent numeric overflow
 PETUUM_CXXFLAGS += -DMINELEVAL=-100000
 
+PETUUM_CXXFLAGS += -static-libstdc++
+
 NMF_SRC = $(wildcard $(NMF_DIR)/src/*.cpp)
 NMF_HDR = $(wildcard $(NMF_DIR)/src/*.hpp)
 NMF_BIN = $(NMF_DIR)/bin

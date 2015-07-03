@@ -171,7 +171,7 @@ int main(int argc, char * argv[]) {
     // loss table. Single column. Each column is loss in one iteration
     int max_client_n = ceil(float(FLAGS_n) / FLAGS_num_clients);
     int iter_minibatch = 
-        ceil(float(max_client_n / FLAGS_num_worker_threads) 
+        ceil(float(max_client_n) / FLAGS_num_worker_threads 
                 / FLAGS_minibatch_size);
     int num_eval_per_client = 
         (FLAGS_num_epochs * iter_minibatch - 1) 

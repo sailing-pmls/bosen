@@ -92,7 +92,7 @@ namespace NMF {
 
         int max_client_n = ceil(float(n) / num_clients_);
         int iter_minibatch = 
-            ceil(float(max_client_n / num_worker_threads_) / minibatch_size_);
+            ceil(float(max_client_n) / num_worker_threads_ / minibatch_size_);
         num_eval_per_client_ = 
             (num_epochs_ * iter_minibatch - 1) 
               / num_eval_minibatch_ + 1;
