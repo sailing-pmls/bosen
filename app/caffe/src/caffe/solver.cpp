@@ -461,12 +461,12 @@ void Solver<Dtype>::ThreadSyncWithPS(const shared_ptr<Blob<Dtype> >& param,
     // Push updates to PS
     param->UpdatePSTable();
     // Read fresh values from PS
-    param->SyncWithPSTable(clock);
+    param->SyncWithPSTable(clock + 1);
   } else {
     // Push updates to PS
     net_->params()[param_owner]->UpdatePSTable(param->cpu_diff());
     // Read fresh values from PS
-    net_->params()[param_owner]->SyncWithPSTable(clock);
+    net_->params()[param_owner]->SyncWithPSTable(clock + 1);
   }
 }
 

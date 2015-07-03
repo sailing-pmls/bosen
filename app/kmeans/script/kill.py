@@ -7,7 +7,7 @@ if len(sys.argv) != 2:
   sys.exit(1)
 
 host_file = sys.argv[1]
-prog_name = "demo"
+prog_name = "kmeans_main"
 
 # Get host IPs
 with open(host_file, "r") as f:
@@ -18,7 +18,6 @@ ssh_cmd = (
     "ssh "
     "-o StrictHostKeyChecking=no "
     "-o UserKnownHostsFile=/dev/null "
-    "-o LogLevel=quiet "
     )
 
 for ip in host_ips:

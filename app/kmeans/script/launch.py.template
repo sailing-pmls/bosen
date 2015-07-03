@@ -48,9 +48,6 @@ petuum_params["num_clients"] = len(host_ips)
 os.system("killall -q " + prog_name)
 print "Done killing"
 
-if not params["output_file_prefix"].startswith("hdfs://"):
-  os.system("mkdir -p " + join(app_dir, "output"))
-
 ssh_cmd = (
     "ssh "
     "-o StrictHostKeyChecking=no "
@@ -60,6 +57,8 @@ ssh_cmd = (
 for client_id, ip in enumerate(host_ips):
   petuum_params["client_id"] = client_id
   cmd = ssh_cmd + ip + " "
+  if not params["output_file_prefix"].startswith("hdfs://"):
+    cmd += "mkdir -p " + join(app_dir, "output") + "; "
   #cmd += "export CLASSPATH=`hadoop classpath --glob`:$CLASSPATH; "
   cmd += env_params + " " + prog_path
   cmd += "".join([" --%s=%s" % (k,v) for k,v in petuum_params.items()])

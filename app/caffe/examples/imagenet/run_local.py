@@ -35,7 +35,7 @@ net_outputs_prefix = output_dir + "/" + dataset
 params = {
     "solver": app_dir + "/models/bvlc_reference_caffenet/solver.prototxt"
     , "table_staleness": 0
-    , "svb": "false"
+    , "svb": "true"
     , "net_outputs": net_outputs_prefix
     , "snapshot": ""
       #to (re)-start training from a snapshot state
@@ -44,6 +44,7 @@ params = {
 petuum_params = {
     "hostfile": hostfile
     , "num_table_threads": 1 + 1 # = num_of_worker_threads + 1
+    , "num_comm_channels_per_client": 8
     , "num_rows_per_table": 256
     , "stats_path": output_dir + "/caffe_stats.yaml"
     , "init_thread_access_table": "true"
