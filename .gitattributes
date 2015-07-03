@@ -1,3 +1,7 @@
 # Force LF endings
 * text eol=lf
 
+# Except for binaries
+*.tar -text
+*.zip -text
+*.gz -text
