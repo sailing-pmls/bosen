@@ -62,14 +62,14 @@ print "Done killing"
 
 for client_id, ip in enumerate(host_ips):
   petuum_params["client_id"] = client_id
-  cmd = ssh_cmd + ip + " "
+  cmd = ssh_cmd + ip + " \""
   if not params["output_file"].startswith("hdfs://"):
     cmd += "mkdir -p " + join(app_dir, "output") + "; "
   #cmd += "export CLASSPATH=`hadoop classpath --glob`:$CLASSPATH; "
   cmd += env_params + " " + prog_path
   cmd += "".join([" --%s=%s" % (k,v) for k,v in petuum_params.items()])
   cmd += "".join([" --%s=%s" % (k,v) for k,v in params.items()])
-  cmd += " &"
+  cmd += "\" &"
   print cmd
   os.system(cmd)
 
