@@ -5,3 +5,4 @@
 *.tar -text
 *.zip -text
 *.gz -text
+*.pdf -text
