@@ -246,6 +246,8 @@ void MLREngine::Start() {
 
       if (batch_counter % num_batches_per_eval == 0) {
         petuum::HighResolutionTimer eval_timer;
+        petuum::PSTableGroup::GlobalBarrier();
+        mlr_solver->RefreshParams();
         ComputeTrainError(mlr_solver.get(), &workload_mgr_train_error,
             num_train_eval_, eval_counter);
         if (perform_test_) {

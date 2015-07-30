@@ -25,7 +25,7 @@ float SafeLog(float x) {
 }
 
 float Sigmoid(float x) {
-  return 1. / (1. + exp(x));
+  return 1. / (1. + exp(-x));
 }
 
 float LogSum(float log_a, float log_b) {
