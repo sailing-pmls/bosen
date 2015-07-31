@@ -28,7 +28,7 @@ private:
   std::mutex system_clock_mtx_;
   std::condition_variable system_clock_cv_;
 
-  std::atomic_int_fast32_t system_clock_;
+  std::atomic_int_fast32_t system_clock_{0};
   VectorClockMT bg_server_clock_;
 
 };
