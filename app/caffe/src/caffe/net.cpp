@@ -1010,7 +1010,6 @@ void Net<Dtype>::Update() {
     if (debug_info_) { UpdateDebugInfo(i); }
     params_[i]->UpdatePSTable();
   }
-  //LOG(INFO) << "update done " << client_id_ << "\t" << tmp_timer.elapsed();
 }
 
 template <typename Dtype>

@@ -41,6 +41,8 @@ ssh_options="-oStrictHostKeyChecking=no \
 host_list=`cat $host_file | awk '{ print $2 }'`
 unique_host_list=`cat $host_file | awk '{ print $2 }' | uniq`
 num_unique_hosts=`cat $host_file | awk '{ print $2 }' | uniq | wc -l`
+# User please specify device_id for multi GPUs here.
+devices="0"
 
 output_dir=$app_dir/output
 output_dir="${output_dir}/caffe.${dataset}.S${param_table_staleness}"
@@ -65,7 +67,7 @@ for ip in $unique_host_list; do
 
   cmd="'mkdir -p ${output_dir}; \
       mkdir -p ${log_path}; \
-      setenv LD_LIBRARY_PATH /usr/local/cuda/lib64; \
+      export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64; \
       ulimit -c unlimited; \
       GLOG_logtostderr=false \
       GLOG_stderrthreshold=0 \
@@ -86,7 +88,8 @@ for ip in $unique_host_list; do
       --consistency_model=$consistency_model \
       --solver=${solver_filename} \
       --svb=$svb \
-      --net_outputs=${net_outputs_prefix}'" #\
+      --net_outputs=${net_outputs_prefix} \
+      --gpu=${devices}'" #\
       #--snapshot=${snapshot_filename}'"
 
   #ssh $ssh_options $ip $cmd &

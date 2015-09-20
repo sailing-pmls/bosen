@@ -372,7 +372,7 @@ template <typename Dtype>
 class CuDNNReLULayer : public ReLULayer<Dtype> {
  public:
   explicit CuDNNReLULayer(const LayerParameter& param)
-      : ReLULayer<Dtype>(param) {}
+      : ReLULayer<Dtype>(param), handles_setup_(false) {}
   virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top, const bool init_ps = false, 
       int* num_tables = NULL,
@@ -387,9 +387,10 @@ class CuDNNReLULayer : public ReLULayer<Dtype> {
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
 
+  bool handles_setup_;
   cudnnHandle_t             handle_;
-  cudnnTensor4dDescriptor_t bottom_desc_;
-  cudnnTensor4dDescriptor_t top_desc_;
+  cudnnTensorDescriptor_t bottom_desc_;
+  cudnnTensorDescriptor_t top_desc_;
 };
 #endif
 
@@ -458,7 +459,7 @@ template <typename Dtype>
 class CuDNNSigmoidLayer : public SigmoidLayer<Dtype> {
  public:
   explicit CuDNNSigmoidLayer(const LayerParameter& param)
-      : SigmoidLayer<Dtype>(param) {}
+      : SigmoidLayer<Dtype>(param), handles_setup_(false) {}
   virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top, const bool init_ps = false, 
       int* num_tables = NULL,
@@ -473,9 +474,10 @@ class CuDNNSigmoidLayer : public SigmoidLayer<Dtype> {
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
 
+  bool handles_setup_;
   cudnnHandle_t             handle_;
-  cudnnTensor4dDescriptor_t bottom_desc_;
-  cudnnTensor4dDescriptor_t top_desc_;
+  cudnnTensorDescriptor_t bottom_desc_;
+  cudnnTensorDescriptor_t top_desc_;
 };
 #endif
 
@@ -546,7 +548,7 @@ template <typename Dtype>
 class CuDNNTanHLayer : public TanHLayer<Dtype> {
  public:
   explicit CuDNNTanHLayer(const LayerParameter& param)
-      : TanHLayer<Dtype>(param) {}
+      : TanHLayer<Dtype>(param), handles_setup_(false) {}
   virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top, const bool init_ps = false, 
       int* num_tables = NULL,
@@ -561,9 +563,10 @@ class CuDNNTanHLayer : public TanHLayer<Dtype> {
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
 
+  bool handles_setup_;
   cudnnHandle_t             handle_;
-  cudnnTensor4dDescriptor_t bottom_desc_;
-  cudnnTensor4dDescriptor_t top_desc_;
+  cudnnTensorDescriptor_t bottom_desc_;
+  cudnnTensorDescriptor_t top_desc_;
 };
 #endif
 

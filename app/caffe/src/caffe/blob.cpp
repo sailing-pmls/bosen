@@ -192,7 +192,7 @@ void Blob<Dtype>::Update() {
   case SyncedMemory::SYNCED:
 #ifndef CPU_ONLY
     // perform computation on GPU
-    caffe_gpu_axpy<Dtype>(count_, Dtype(-1),
+    caffe_gpu_axpy<Dtype>(Caffe::GetDeviceId(), count_, Dtype(-1),
         static_cast<const Dtype*>(diff_->gpu_data()),
         static_cast<Dtype*>(data_->mutable_gpu_data()));
 #else
@@ -306,7 +306,7 @@ Dtype Blob<Dtype>::asum_data() const {
 #ifndef CPU_ONLY
   {
     Dtype asum;
-    caffe_gpu_asum(count_, gpu_data(), &asum);
+    caffe_gpu_asum(Caffe::GetDeviceId(), count_, gpu_data(), &asum);
     return asum;
   }
 #else
@@ -341,7 +341,7 @@ Dtype Blob<Dtype>::asum_diff() const {
 #ifndef CPU_ONLY
   {
     Dtype asum;
-    caffe_gpu_asum(count_, gpu_diff(), &asum);
+    caffe_gpu_asum(Caffe::GetDeviceId(), count_, gpu_diff(), &asum);
     return asum;
   }
 #else

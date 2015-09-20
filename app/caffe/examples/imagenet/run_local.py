@@ -19,6 +19,8 @@ if len(sys.argv) != 3 and len(sys.argv) != 4:
 # Please set the FULL app dir path here
 app_dir = "CAFFE_ROOT"
 dataset = "imagenet"
+# set the GPU devices you are going to use here
+devices = [0]
 
 client_id = sys.argv[1]
 hostfile = sys.argv[2]
@@ -39,11 +41,12 @@ params = {
     , "net_outputs": net_outputs_prefix
     , "snapshot": ""
       #to (re)-start training from a snapshot state
+    , "gpu": ",".join(str(k) for k in devices)
     }
 
 petuum_params = {
     "hostfile": hostfile
-    , "num_table_threads": 1 + 1 # = num_of_worker_threads + 1
+    , "num_table_threads": len(devices) + 1 # = num_of_worker_threads + 1
     , "num_comm_channels_per_client": 8
     , "num_rows_per_table": 256
     , "stats_path": output_dir + "/caffe_stats.yaml"
@@ -55,6 +58,7 @@ prog_name = "caffe_main"
 prog_path = app_dir + "/build/tools/" + prog_name + " train "
 
 env_params = (
+  "export LD_LIBRARY_PATH=/usr/local/cuda/lib64; "
   "GLOG_logtostderr=false "
   "GLOG_stderrthreshold=0 "
   "GLOG_v=-1 "

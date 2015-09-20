@@ -4,6 +4,7 @@
 #include <boost/shared_ptr.hpp>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <boost/thread/thread.hpp>
 
 #include <cmath>
 #include <fstream>  // NOLINT(readability/streams)
@@ -103,16 +104,23 @@ class Caffe {
 
   // Getters for boost rng, curand, and cublas handles
   inline static RNG& rng_stream() {
+    Get().random_generator_mutext_.lock();
     if (!Get().random_generator_) {
       Get().random_generator_.reset(new RNG());
     }
+    Get().random_generator_mutext_.unlock();
     return *(Get().random_generator_);
   }
 #ifndef CPU_ONLY
-  inline static cublasHandle_t cublas_handle() { return Get().cublas_handle_; }
-  inline static curandGenerator_t curand_generator() {
-    return Get().curand_generator_;
+  inline static cublasHandle_t cublas_handle(const int device_id) {
+    CHECK_EQ(Get().cublas_handle_.count(device_id),1); 
+    return Get().cublas_handle_[device_id];
   }
+  inline static curandGenerator_t curand_generator(const int device_id) {
+    CHECK_EQ(Get().curand_generator_.count(device_id),1);
+    return Get().curand_generator_[device_id];
+  }
+
 #endif
 
   // Returns the mode: running on CPU or GPU.
@@ -147,11 +155,33 @@ class Caffe {
   // Prints the current GPU status.
   static void DeviceQuery();
 
+  //get the binded device id for current thread
+  static int GetDeviceId();
+
+  //get the device id given the thread id
+  static int GetDeviceId(const int thread_id);
+
+  //initialization
+  static void InitDevices(const std::vector<int> &device_ids, const int num_app_threads);
+  static void InitDevice(const int device_id);
+
+  //Get all active devices
+  static const vector<int>& GetActiveDevices();
+
+  static void SyncDevice();
+
  protected:
 #ifndef CPU_ONLY
-  cublasHandle_t cublas_handle_;
-  curandGenerator_t curand_generator_;
+  //device_id->cublas handle
+  map<int,cublasHandle_t> cublas_handle_;
+  //device_id->curandgenerator
+  map<int,curandGenerator_t> curand_generator_;
 #endif
+  vector<int> device_ids_; //devices
+  map<int, int> threads_devices_; //thread id -> device id
+
+  boost::mutex random_generator_mutext_;
+
   shared_ptr<RNG> random_generator_;
 
   Brew mode_;

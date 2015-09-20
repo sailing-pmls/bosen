@@ -76,6 +76,9 @@ public:
     }
   }
 
+  // utility
+  static std::vector<int> parse_int_list(std::string s, std::string delimiter);
+
 private:
   // Private constructor. Store all the gflags values.
   Context();

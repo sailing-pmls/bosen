@@ -82,38 +82,32 @@ void* Caffe::RNG::generator() {
 
 #else  // Normal GPU + CPU Caffe.
 
-Caffe::Caffe()
-    : cublas_handle_(NULL), curand_generator_(NULL), random_generator_(),
-    mode_(Caffe::CPU), phases_(NULL) {
-  // Try to create a cublas handler, and report an error if failed (but we will
-  // keep the program running as one might just want to run CPU code).
-  if (cublasCreate(&cublas_handle_) != CUBLAS_STATUS_SUCCESS) {
-    LOG(ERROR) << "Cannot create Cublas handle. Cublas won't be available.";
-  }
-  // Try to create a curand handler.
-  if (curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT)
-      != CURAND_STATUS_SUCCESS ||
-      curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen())
-      != CURAND_STATUS_SUCCESS) {
-    LOG(ERROR) << "Cannot create Curand generator. Curand won't be available.";
-  }
+Caffe::Caffe():
+    random_generator_(), mode_(Caffe::CPU), phases_(NULL) {
 }
 
 Caffe::~Caffe() {
-  if (cublas_handle_) CUBLAS_CHECK(cublasDestroy(cublas_handle_));
-  if (curand_generator_) {
-    CURAND_CHECK(curandDestroyGenerator(curand_generator_));
+ for (std::map<int, cublasHandle_t>::iterator it = Get().cublas_handle_.begin();
+    it != Get().cublas_handle_.end(); ++it){
+    CUBLAS_CHECK(cublasDestroy(it->second));
+  }
+  for (std::map<int, curandGenerator_t>::iterator it = Get().curand_generator_.begin();
+    it != Get().curand_generator_.end(); ++it){
+    CURAND_CHECK(curandDestroyGenerator(it->second));
   }
 }
 
 void Caffe::set_random_seed(const unsigned int seed) {
   // Curand seed
   static bool g_curand_availability_logged = false;
-  if (Get().curand_generator_) {
-    CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator(),
-        seed));
-    CURAND_CHECK(curandSetGeneratorOffset(curand_generator(), 0));
-  } else {
+  if (Get().curand_generator_.size() >0 ) {
+    for (std::map<int, curandGenerator_t>::iterator it = Get().curand_generator_.begin();
+      it != Get().curand_generator_.end(); ++it){
+      CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(it->second, seed));
+      CURAND_CHECK(curandSetGeneratorOffset(it->second, 0));
+     }
+  }
+ else {
     if (!g_curand_availability_logged) {
         LOG(ERROR) <<
             "Curand not available. Skipping setting the curand seed.";
@@ -124,25 +118,11 @@ void Caffe::set_random_seed(const unsigned int seed) {
   Get().random_generator_.reset(new RNG(seed));
 }
 
+//Note, the input parameter is *device* id
 void Caffe::SetDevice(const int device_id) {
-  int current_device;
-  CUDA_CHECK(cudaGetDevice(&current_device));
-  if (current_device == device_id) {
-    return;
-  }
-  // The call to cudaSetDevice must come before any calls to Get, which
-  // may perform initialization using the GPU.
   CUDA_CHECK(cudaSetDevice(device_id));
-  if (Get().cublas_handle_) CUBLAS_CHECK(cublasDestroy(Get().cublas_handle_));
-  if (Get().curand_generator_) {
-    CURAND_CHECK(curandDestroyGenerator(Get().curand_generator_));
-  }
-  CUBLAS_CHECK(cublasCreate(&Get().cublas_handle_));
-  CURAND_CHECK(curandCreateGenerator(&Get().curand_generator_,
-      CURAND_RNG_PSEUDO_DEFAULT));
-  CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(Get().curand_generator_,
-      cluster_seedgen()));
 }
+
 
 void Caffe::DeviceQuery() {
   cudaDeviceProp prop;
@@ -177,6 +157,59 @@ void Caffe::DeviceQuery() {
   LOG(INFO) << "Kernel execution timeout:      "
       << (prop.kernelExecTimeoutEnabled ? "Yes" : "No");
   return;
+}
+
+//Get the device id for the host thread
+int Caffe::GetDeviceId(){
+  int d = 0;
+  if (Caffe::mode()==GPU){
+    CUDA_CHECK(cudaGetDevice(&d));
+  }
+  return d;
+}
+
+int Caffe::GetDeviceId(const int thread_id){
+  CHECK_GT(Get().threads_devices_.size(), 0) << "Threads devices mapping is empty";
+  CHECK(Get().threads_devices_.count(thread_id) > 0) << "Cannot find binded device";
+  return Get().threads_devices_[thread_id];
+}
+
+void Caffe::InitDevices(const std::vector<int> &device_ids, const int num_app_threads){
+  //only initialize the top num_app_threads of devices
+  for (int i = 0; i < num_app_threads; ++i){
+   InitDevice(device_ids[i]);
+  }
+
+  //bind device id with thread id
+  for (int i = 0; i < num_app_threads; ++i){
+    Get().threads_devices_[i] = device_ids[i];
+  }
+}
+
+void Caffe::InitDevice(const int device_id){
+  for (int i = 0; i < Get().device_ids_.size(); ++i){
+    CHECK(Get().device_ids_[i] != device_id) << "Duplicated device id: " <<device_id;
+  }
+  Get().device_ids_.push_back(device_id);
+  SetDevice(device_id);
+  cublasHandle_t h;
+  CUBLAS_CHECK(cublasCreate(&h));
+  Get().cublas_handle_[device_id] = h;
+  if(Get().cublas_handle_.count(device_id) == 1)
+	LOG(INFO)<< "device_id = " << device_id << " successfully initialized";
+  curandGenerator_t g;
+  CURAND_CHECK(curandCreateGenerator(&g, CURAND_RNG_PSEUDO_DEFAULT));
+  Get().curand_generator_[device_id] = g;
+  CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(Get().curand_generator_[device_id], cluster_seedgen()));
+  SyncDevice();
+}
+
+const vector<int>& Caffe::GetActiveDevices(){
+  return Get().device_ids_;
+}
+
+void Caffe::SyncDevice(){
+  CUDA_CHECK(cudaDeviceSynchronize());
 }
 
 

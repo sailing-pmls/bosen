@@ -18,7 +18,10 @@ void CuDNNSoftmaxLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
   Dtype* top_data = (*top)[0]->mutable_gpu_data();
   CUDNN_CHECK(cudnnSoftmaxForward(handle_, CUDNN_SOFTMAX_ACCURATE,
       CUDNN_SOFTMAX_MODE_CHANNEL,
-      bottom_desc_, bottom_data, top_desc_, top_data));
+      cudnn::dataType<Dtype>::one,
+      bottom_desc_, bottom_data,
+      cudnn::dataType<Dtype>::zero,
+      top_desc_, top_data));
 }
 
 template <typename Dtype>
@@ -31,7 +34,10 @@ void CuDNNSoftmaxLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
     Dtype* bottom_diff = (*bottom)[0]->mutable_gpu_diff();
     CUDNN_CHECK(cudnnSoftmaxBackward(handle_, CUDNN_SOFTMAX_ACCURATE,
         CUDNN_SOFTMAX_MODE_CHANNEL,
-        top_desc_, top_data, top_desc_, top_diff, bottom_desc_, bottom_diff));
+        cudnn::dataType<Dtype>::one,
+        top_desc_, top_data, top_desc_, top_diff,
+        cudnn::dataType<Dtype>::zero,
+        bottom_desc_, bottom_diff));
   }
 }
 

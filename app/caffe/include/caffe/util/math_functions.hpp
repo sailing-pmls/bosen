@@ -153,22 +153,22 @@ void caffe_cpu_scale(const int n, const Dtype alpha, const Dtype *x, Dtype* y);
 // gemm function - following the c convention and calling the fortran-order
 // gpu code under the hood.
 template <typename Dtype>
-void caffe_gpu_gemm(const CBLAS_TRANSPOSE TransA,
+void caffe_gpu_gemm(const int device_id, const CBLAS_TRANSPOSE TransA,
     const CBLAS_TRANSPOSE TransB, const int M, const int N, const int K,
     const Dtype alpha, const Dtype* A, const Dtype* B, const Dtype beta,
     Dtype* C);
 
 template <typename Dtype>
-void caffe_gpu_gemv(const CBLAS_TRANSPOSE TransA, const int M, const int N,
+void caffe_gpu_gemv(const int device_id, const CBLAS_TRANSPOSE TransA, const int M, const int N,
     const Dtype alpha, const Dtype* A, const Dtype* x, const Dtype beta,
     Dtype* y);
 
 template <typename Dtype>
-void caffe_gpu_axpy(const int N, const Dtype alpha, const Dtype* X,
+void caffe_gpu_axpy(const int device_id, const int N, const Dtype alpha, const Dtype* X,
     Dtype* Y);
 
 template <typename Dtype>
-void caffe_gpu_axpby(const int N, const Dtype alpha, const Dtype* X,
+void caffe_gpu_axpby(const int device_id, const int N, const Dtype alpha, const Dtype* X,
     const Dtype beta, Dtype* Y);
 
 void caffe_gpu_memcpy(const size_t N, const void *X, void *Y);
@@ -188,7 +188,7 @@ template <typename Dtype>
 void caffe_gpu_add_scalar(const int N, const Dtype alpha, Dtype *X);
 
 template <typename Dtype>
-void caffe_gpu_scal(const int N, const Dtype alpha, Dtype *X);
+void caffe_gpu_scal(const int device_id, const int N, const Dtype alpha, Dtype *X);
 
 template <typename Dtype>
 void caffe_gpu_add(const int N, const Dtype* a, const Dtype* b, Dtype* y);
@@ -210,7 +210,7 @@ void caffe_gpu_powx(const int n, const Dtype* a, const Dtype b, Dtype* y);
 
 // caffe_gpu_rng_uniform with two arguments generates integers in the range
 // [0, UINT_MAX].
-void caffe_gpu_rng_uniform(const int n, unsigned int* r);
+void caffe_gpu_rng_uniform(const int device_id, const int n, unsigned int* r);
 
 // caffe_gpu_rng_uniform with four arguments generates floats in the range
 // (a, b] (strictly greater than a, less than or equal to b) due to the
@@ -218,24 +218,24 @@ void caffe_gpu_rng_uniform(const int n, unsigned int* r);
 // curandGenerateUniform; with other limits will shift and scale the outputs
 // appropriately after calling curandGenerateUniform.
 template <typename Dtype>
-void caffe_gpu_rng_uniform(const int n, const Dtype a, const Dtype b, Dtype* r);
+void caffe_gpu_rng_uniform(const int device_id, const int n, const Dtype a, const Dtype b, Dtype* r);
 
 template <typename Dtype>
-void caffe_gpu_rng_gaussian(const int n, const Dtype mu, const Dtype sigma,
+void caffe_gpu_rng_gaussian(const int device_id, const int n, const Dtype mu, const Dtype sigma,
                             Dtype* r);
 
 template <typename Dtype>
 void caffe_gpu_rng_bernoulli(const int n, const Dtype p, int* r);
 
 template <typename Dtype>
-void caffe_gpu_dot(const int n, const Dtype* x, const Dtype* y, Dtype* out);
+void caffe_gpu_dot(const int device_id, const int n, const Dtype* x, const Dtype* y, Dtype* out);
 
 template <typename Dtype>
 uint32_t caffe_gpu_hamming_distance(const int n, const Dtype* x,
                                     const Dtype* y);
 
 template <typename Dtype>
-void caffe_gpu_asum(const int n, const Dtype* x, Dtype* y);
+void caffe_gpu_asum(const int device_id, const int n, const Dtype* x, Dtype* y);
 
 template<typename Dtype>
 void caffe_gpu_sign(const int n, const Dtype* x, Dtype* y);
@@ -247,7 +247,7 @@ template <typename Dtype>
 void caffe_gpu_fabs(const int n, const Dtype* x, Dtype* y);
 
 template <typename Dtype>
-void caffe_gpu_scale(const int n, const Dtype alpha, const Dtype *x, Dtype* y);
+void caffe_gpu_scale(const int device_id, const int n, const Dtype alpha, const Dtype *x, Dtype* y);
 
 #define DEFINE_AND_INSTANTIATE_GPU_UNARY_FUNC(name, operation) \
 template<typename Dtype> \

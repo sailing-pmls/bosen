@@ -404,7 +404,7 @@ template <typename Dtype>
 class CuDNNSoftmaxLayer : public SoftmaxLayer<Dtype> {
  public:
   explicit CuDNNSoftmaxLayer(const LayerParameter& param)
-      : SoftmaxLayer<Dtype>(param) {}
+      : SoftmaxLayer<Dtype>(param), handles_setup_(false) {}
   virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top, const bool init_ps = false, 
       int* num_tables = NULL,
@@ -419,9 +419,10 @@ class CuDNNSoftmaxLayer : public SoftmaxLayer<Dtype> {
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
      const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
 
+  bool handles_setup_;
   cudnnHandle_t             handle_;
-  cudnnTensor4dDescriptor_t bottom_desc_;
-  cudnnTensor4dDescriptor_t top_desc_;
+  cudnnTensorDescriptor_t bottom_desc_;
+  cudnnTensorDescriptor_t top_desc_;
 };
 #endif
 

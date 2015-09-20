@@ -309,7 +309,6 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   // should be given, and we will just provide dummy vecs.
   vector<Blob<Dtype>*> bottom_vec;
   for (; iter_ < param_.max_iter(); ++iter_) {
-   
     JoinSyncThreads();
 
     // Save a snapshot if needed.
@@ -448,7 +447,6 @@ Dtype Solver<Dtype>::ForwardBackward(const vector<Blob<Dtype>* >& bottom) {
       }
     }
   } // end of layers
-
   return loss;
 }
 
@@ -456,6 +454,8 @@ Dtype Solver<Dtype>::ForwardBackward(const vector<Blob<Dtype>* >& bottom) {
 template <typename Dtype>
 void Solver<Dtype>::ThreadSyncWithPS(const shared_ptr<Blob<Dtype> >& param,
     const int param_id, const int param_owner, const int clock) {
+  //bind the communication thread with the same device binded to thread_id_
+  Caffe::SetDevice(Caffe::GetDeviceId(thread_id_));
   ComputeUpdateValue(param_id);
   if (param_owner < 0) {
     // Push updates to PS
@@ -476,6 +476,8 @@ void Solver<Dtype>::ThreadSyncWithSVB(
     const shared_ptr<Blob<Dtype> >& param, const int param_id, 
     const shared_ptr<Layer<Dtype> >& layer, const int layer_id,
     const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom) {
+  //bind the communication thread with the same device binded to thread_id_
+  Caffe::SetDevice(Caffe::GetDeviceId(thread_id_));
   SufficientVectorQueue* local_svq = util::Context::local_sv_queue(layer_id);
   SufficientVectorQueue* remote_svq = util::Context::remote_sv_queue(layer_id);
   const int sv_a_size = top[0]->count() * sizeof(Dtype);
@@ -852,14 +854,14 @@ void SGDSolver<Dtype>::ComputeUpdateValue(const int param_id) {
     if (local_decay) {
       if (regularization_type == "L2") {
         // add weight decay
-        caffe_gpu_axpy(net_param->count(),
+        caffe_gpu_axpy(Caffe::GetDeviceId(), net_param->count(),
             local_decay, net_param->gpu_data(),
             net_param->mutable_gpu_diff());
       } else if (regularization_type == "L1") {
         caffe_gpu_sign(net_param->count(),
             net_param->gpu_data(),
             temp_[param_id]->mutable_gpu_data());
-        caffe_gpu_axpy(net_param->count(),
+        caffe_gpu_axpy(Caffe::GetDeviceId(), net_param->count(),
             local_decay, temp_[param_id]->gpu_data(),
             net_param->mutable_gpu_diff());
       } else {
@@ -867,7 +869,7 @@ void SGDSolver<Dtype>::ComputeUpdateValue(const int param_id) {
       }
     }
 
-    caffe_gpu_axpby(net_param->count(), local_rate,
+    caffe_gpu_axpby(Caffe::GetDeviceId(), net_param->count(), local_rate,
               net_param->gpu_diff(), momentum,
               history_[param_id]->mutable_gpu_data());
     // copy
@@ -943,7 +945,7 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
       if (local_decay) {
         if (regularization_type == "L2") {
           // add weight decay
-          caffe_gpu_axpy(net_params[param_id]->count(),
+          caffe_gpu_axpy(Caffe::GetDeviceId(), net_params[param_id]->count(),
               local_decay,
               net_params[param_id]->gpu_data(),
               net_params[param_id]->mutable_gpu_diff());
@@ -951,7 +953,7 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
           caffe_gpu_sign(net_params[param_id]->count(),
               net_params[param_id]->gpu_data(),
               temp_[param_id]->mutable_gpu_data());
-          caffe_gpu_axpy(net_params[param_id]->count(),
+          caffe_gpu_axpy(Caffe::GetDeviceId(), net_params[param_id]->count(),
               local_decay,
               temp_[param_id]->gpu_data(),
               net_params[param_id]->mutable_gpu_diff());
@@ -960,7 +962,7 @@ void SGDSolver<Dtype>::ComputeUpdateValue() {
         }
       }
 
-      caffe_gpu_axpby(net_params[param_id]->count(), local_rate,
+      caffe_gpu_axpby(Caffe::GetDeviceId(), net_params[param_id]->count(), local_rate,
                 net_params[param_id]->gpu_diff(), momentum,
                 history_[param_id]->mutable_gpu_data());
       // copy
@@ -1070,7 +1072,7 @@ void NesterovSolver<Dtype>::ComputeUpdateValue(const int param_id) {
     if (local_decay) {
       if (regularization_type == "L2") {
         // add weight decay
-        caffe_gpu_axpy(net_params[param_id]->count(),
+        caffe_gpu_axpy(Caffe::GetDeviceId(), net_params[param_id]->count(),
             local_decay,
             net_params[param_id]->gpu_data(),
             net_params[param_id]->mutable_gpu_diff());
@@ -1078,7 +1080,7 @@ void NesterovSolver<Dtype>::ComputeUpdateValue(const int param_id) {
         caffe_gpu_sign(net_params[param_id]->count(),
             net_params[param_id]->gpu_data(),
             this->temp_[param_id]->mutable_gpu_data());
-        caffe_gpu_axpy(net_params[param_id]->count(),
+        caffe_gpu_axpy(Caffe::GetDeviceId(), net_params[param_id]->count(),
             local_decay,
             this->temp_[param_id]->gpu_data(),
             net_params[param_id]->mutable_gpu_diff());
@@ -1088,12 +1090,12 @@ void NesterovSolver<Dtype>::ComputeUpdateValue(const int param_id) {
     }
 
     // update history
-    caffe_gpu_axpby(net_params[param_id]->count(), local_rate,
+    caffe_gpu_axpby(Caffe::GetDeviceId(), net_params[param_id]->count(), local_rate,
               net_params[param_id]->gpu_diff(), momentum,
               this->history_[param_id]->mutable_gpu_data());
 
     // compute udpate: step back then over step
-    caffe_gpu_axpby(net_params[param_id]->count(), Dtype(1) + momentum,
+    caffe_gpu_axpby(Caffe::GetDeviceId(), net_params[param_id]->count(), Dtype(1) + momentum,
         this->history_[param_id]->gpu_data(), -momentum,
         this->update_[param_id]->mutable_gpu_data());
 
@@ -1186,7 +1188,7 @@ void NesterovSolver<Dtype>::ComputeUpdateValue() {
       if (local_decay) {
         if (regularization_type == "L2") {
           // add weight decay
-          caffe_gpu_axpy(net_params[param_id]->count(),
+          caffe_gpu_axpy(Caffe::GetDeviceId(), net_params[param_id]->count(),
               local_decay,
               net_params[param_id]->gpu_data(),
               net_params[param_id]->mutable_gpu_diff());
@@ -1194,7 +1196,7 @@ void NesterovSolver<Dtype>::ComputeUpdateValue() {
           caffe_gpu_sign(net_params[param_id]->count(),
               net_params[param_id]->gpu_data(),
               this->temp_[param_id]->mutable_gpu_data());
-          caffe_gpu_axpy(net_params[param_id]->count(),
+          caffe_gpu_axpy(Caffe::GetDeviceId(), net_params[param_id]->count(),
               local_decay,
               this->temp_[param_id]->gpu_data(),
               net_params[param_id]->mutable_gpu_diff());
@@ -1204,12 +1206,12 @@ void NesterovSolver<Dtype>::ComputeUpdateValue() {
       }
 
       // update history
-      caffe_gpu_axpby(net_params[param_id]->count(), local_rate,
+      caffe_gpu_axpby(Caffe::GetDeviceId(), net_params[param_id]->count(), local_rate,
                 net_params[param_id]->gpu_diff(), momentum,
                 this->history_[param_id]->mutable_gpu_data());
 
       // compute udpate: step back then over step
-      caffe_gpu_axpby(net_params[param_id]->count(), Dtype(1) + momentum,
+      caffe_gpu_axpby(Caffe::GetDeviceId(), net_params[param_id]->count(), Dtype(1) + momentum,
           this->history_[param_id]->gpu_data(), -momentum,
           this->update_[param_id]->mutable_gpu_data());
 
@@ -1300,7 +1302,7 @@ void AdaGradSolver<Dtype>::ComputeUpdateValue(const int param_id) {
     if (local_decay) {
       if (regularization_type == "L2") {
         // add weight decay
-        caffe_gpu_axpy(net_params[param_id]->count(),
+        caffe_gpu_axpy(Caffe::GetDeviceId(), net_params[param_id]->count(),
             local_decay,
             net_params[param_id]->gpu_data(),
             net_params[param_id]->mutable_gpu_diff());
@@ -1308,7 +1310,7 @@ void AdaGradSolver<Dtype>::ComputeUpdateValue(const int param_id) {
         caffe_gpu_sign(net_params[param_id]->count(),
             net_params[param_id]->gpu_data(),
             this->temp_[param_id]->mutable_gpu_data());
-        caffe_gpu_axpy(net_params[param_id]->count(),
+        caffe_gpu_axpy(Caffe::GetDeviceId(), net_params[param_id]->count(),
             local_decay,
             this->temp_[param_id]->gpu_data(),
             net_params[param_id]->mutable_gpu_diff());
@@ -1342,7 +1344,7 @@ void AdaGradSolver<Dtype>::ComputeUpdateValue(const int param_id) {
               this->update_[param_id]->mutable_gpu_data());
 
     // scale and copy
-    caffe_gpu_axpby(net_params[param_id]->count(), local_rate,
+    caffe_gpu_axpby(Caffe::GetDeviceId(), net_params[param_id]->count(), local_rate,
         this->update_[param_id]->gpu_data(), Dtype(0),
         net_params[param_id]->mutable_gpu_diff());
 #else
@@ -1434,7 +1436,7 @@ void AdaGradSolver<Dtype>::ComputeUpdateValue() {
       if (local_decay) {
         if (regularization_type == "L2") {
           // add weight decay
-          caffe_gpu_axpy(net_params[param_id]->count(),
+          caffe_gpu_axpy(Caffe::GetDeviceId(), net_params[param_id]->count(),
               local_decay,
               net_params[param_id]->gpu_data(),
               net_params[param_id]->mutable_gpu_diff());
@@ -1442,7 +1444,7 @@ void AdaGradSolver<Dtype>::ComputeUpdateValue() {
           caffe_gpu_sign(net_params[param_id]->count(),
               net_params[param_id]->gpu_data(),
               this->temp_[param_id]->mutable_gpu_data());
-          caffe_gpu_axpy(net_params[param_id]->count(),
+          caffe_gpu_axpy(Caffe::GetDeviceId(), net_params[param_id]->count(),
               local_decay,
               this->temp_[param_id]->gpu_data(),
               net_params[param_id]->mutable_gpu_diff());
@@ -1476,7 +1478,7 @@ void AdaGradSolver<Dtype>::ComputeUpdateValue() {
                 this->update_[param_id]->mutable_gpu_data());
 
       // scale and copy
-      caffe_gpu_axpby(net_params[param_id]->count(), local_rate,
+      caffe_gpu_axpby(Caffe::GetDeviceId(), net_params[param_id]->count(), local_rate,
           this->update_[param_id]->gpu_data(), Dtype(0),
           net_params[param_id]->mutable_gpu_diff());
     }

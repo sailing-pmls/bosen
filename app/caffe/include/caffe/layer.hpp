@@ -64,6 +64,7 @@ class Layer {
       map<string, vector<int> >* layer_name_to_blob_global_idx = NULL) {
     net_id_ = net_id;
     thread_id_ = thread_id;
+    device_id_ = Caffe::GetDeviceId(thread_id);
     if (init_ps) {
       CHECK_NOTNULL(num_tables);
       CHECK_NOTNULL(layer_name_to_blob_global_idx);
@@ -321,6 +322,7 @@ class Layer {
   /** -1: a layer of the train net; >0: a layer of the test net */
   int net_id_;
   int thread_id_;
+  int device_id_;
   /** The protobuf that stores the layer parameters */
   LayerParameter layer_param_;
   /** The vector that stores the learnable parameters as a set of blobs. */
@@ -519,7 +521,7 @@ inline Dtype Layer<Dtype>::Forward(const vector<Blob<Dtype>*>& bottom,
       const Dtype* data = (*top)[top_id]->gpu_data();
       const Dtype* loss_weights = (*top)[top_id]->gpu_diff();
       Dtype blob_loss = 0;
-      caffe_gpu_dot(count, data, loss_weights, &blob_loss);
+      caffe_gpu_dot(device_id_,count, data, loss_weights, &blob_loss);
       loss += blob_loss;
     }
 #endif

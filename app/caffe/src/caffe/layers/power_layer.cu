@@ -21,7 +21,7 @@ void PowerLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
   const Dtype* bottom_data = bottom[0]->gpu_data();
   caffe_copy(count, bottom_data, top_data);
   if (scale_ != Dtype(1)) {
-    caffe_gpu_scal(count, scale_, top_data);
+    caffe_gpu_scal(this->device_id_, count, scale_, top_data);
   }
   if (shift_ != Dtype(0)) {
     caffe_gpu_add_scalar(count, shift_, top_data);
@@ -49,7 +49,7 @@ void PowerLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
         // Special case for y = (shift + scale * x)^2
         //     -> dy/dx = 2 * scale * (shift + scale * x)
         //              = diff_scale * shift + diff_scale * scale * x
-        caffe_gpu_axpby(count, diff_scale_ * scale_, bottom_data,
+        caffe_gpu_axpby(this->device_id_, count, diff_scale_ * scale_, bottom_data,
             Dtype(0), bottom_diff);
         if (shift_ != Dtype(0)) {
           caffe_gpu_add_scalar(count, diff_scale_ * shift_, bottom_diff);
@@ -61,11 +61,11 @@ void PowerLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
         //              = power * y / x
         const Dtype* top_data = top[0]->gpu_data();
         caffe_gpu_div(count, top_data, bottom_data, bottom_diff);
-        caffe_gpu_scal(count, power_, bottom_diff);
+        caffe_gpu_scal(this->device_id_, count, power_, bottom_diff);
       } else {
         caffe_copy(count, bottom_data, bottom_diff);
         if (scale_ != Dtype(1)) {
-          caffe_gpu_scal(count, scale_, bottom_diff);
+          caffe_gpu_scal(this->device_id_, count, scale_, bottom_diff);
         }
         if (shift_ != Dtype(0)) {
           caffe_gpu_add_scalar(count, shift_, bottom_diff);
@@ -73,7 +73,7 @@ void PowerLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
         const Dtype* top_data = top[0]->gpu_data();
         caffe_gpu_div<Dtype>(count, top_data, bottom_diff, bottom_diff);
         if (diff_scale_ != Dtype(1)) {
-          caffe_gpu_scal(count, diff_scale_, bottom_diff);
+          caffe_gpu_scal(this->device_id_, count, diff_scale_, bottom_diff);
         }
       }
     }

@@ -132,7 +132,7 @@ template <typename Dtype>
 class CuDNNConvolutionLayer : public ConvolutionLayer<Dtype> {
  public:
   explicit CuDNNConvolutionLayer(const LayerParameter& param)
-      : ConvolutionLayer<Dtype>(param) {}
+      : ConvolutionLayer<Dtype>(param), handles_setup_(false) {}
   virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top, const bool init_ps = false, 
       int* num_tables = NULL,
@@ -147,13 +147,16 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Dtype> {
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
 
+  bool handles_setup_;
   cudnnHandle_t* handle_;
   cudaStream_t*  stream_;
-  vector<cudnnTensor4dDescriptor_t> bottom_descs_, top_descs_;
-  cudnnTensor4dDescriptor_t    bias_desc_;
+  vector<cudnnTensorDescriptor_t> bottom_descs_, top_descs_;
+  cudnnTensorDescriptor_t    bias_desc_;
   cudnnFilterDescriptor_t      filter_desc_;
   vector<cudnnConvolutionDescriptor_t> conv_descs_;
   int bottom_offset_, top_offset_, weight_offset_, bias_offset_;
+  size_t workspaceSizeInBytes;
+  void *workspace;
 };
 #endif
 
@@ -340,7 +343,7 @@ template <typename Dtype>
 class CuDNNPoolingLayer : public PoolingLayer<Dtype> {
  public:
   explicit CuDNNPoolingLayer(const LayerParameter& param)
-      : PoolingLayer<Dtype>(param) {}
+      : PoolingLayer<Dtype>(param), handles_setup_(false) {}
   virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top, const bool init_ps = false, 
       int* num_tables = NULL,
@@ -355,8 +358,9 @@ class CuDNNPoolingLayer : public PoolingLayer<Dtype> {
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
 
+  bool handles_setup_;
   cudnnHandle_t             handle_;
-  cudnnTensor4dDescriptor_t bottom_desc_, top_desc_;
+  cudnnTensorDescriptor_t bottom_desc_, top_desc_;
   cudnnPoolingDescriptor_t  pooling_desc_;
   cudnnPoolingMode_t        mode_;
 };

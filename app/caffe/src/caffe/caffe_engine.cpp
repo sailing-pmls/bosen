@@ -254,6 +254,8 @@ void CaffeEngine<Dtype>::Start() {
   // Initialize local thread data structures.
   int thread_id = thread_counter_++;
 
+  // Set the device for current thread
+  Caffe::SetDevice(Caffe::GetDeviceId(thread_id));
   util::Context& context = util::Context::get_instance();
   int client_id = context.get_int32("client_id");
   string solver_path = context.get_string("solver");

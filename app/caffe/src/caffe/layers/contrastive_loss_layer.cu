@@ -23,6 +23,7 @@ void ContrastiveLossLayer<Dtype>::Forward_gpu(
       Dtype(2),
       diff_sq_.mutable_gpu_data());  // (a_i-b_i)^2
   caffe_gpu_gemv(
+      this->device_id_,
       CblasNoTrans,
       bottom[0]->num(),
       bottom[0]->channels(),

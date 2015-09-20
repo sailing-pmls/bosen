@@ -91,4 +91,35 @@ void Context::set(std::string key, std::string value) {
   ctx_[key] = value;
 }
 
+// utility
+//Parse string into int list
+std::vector<int> Context::parse_int_list(std::string s, std::string delimiter){
+  std::vector<int> list;
+  if (s.length() == 0){
+    return list;
+  }
+  size_t pos = 0;
+  std::string token;
+  int id;
+  while ( (pos = s.find(delimiter)) != std::string::npos ){
+    token = s.substr(0, pos);
+    if (sscanf(token.c_str(), "%d", &id) < 1){
+      LOG(ERROR) << "cannot parse int list " << token;
+    }
+    else{
+      list.push_back(id);
+      s.erase(0, pos + delimiter.length());
+    }
+  }
+
+  //last
+  if (sscanf(s.c_str(), "%d", &id) < 1){
+    LOG(ERROR) << "cannot parse int list " << s;
+  }
+  else{
+    list.push_back(id);
+  }
+  return list;
+}
+
 }   // namespace util

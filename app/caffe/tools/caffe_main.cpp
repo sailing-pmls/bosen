@@ -29,7 +29,7 @@ DEFINE_int32(svb_timeout_ms, 10,
     "Milliseconds the svb receiver waits for");
 
 // Caffe Parameters
-DEFINE_int32(gpu, -1,
+DEFINE_string(gpu, "",
     "Run in GPU mode on given device ID.");
 DEFINE_string(solver, "",
     "The solver definition protocol buffer text file.");
@@ -83,10 +83,14 @@ static BrewFunction GetBrewFunction(const caffe::string& name) {
 
 // Device Query: show diagnostic information for a GPU device.
 int device_query() {
-  CHECK_GT(FLAGS_gpu, -1) << "Need a device ID to query.";
-  LOG(INFO) << "Querying device ID = " << FLAGS_gpu;
-  caffe::Caffe::SetDevice(FLAGS_gpu);
-  caffe::Caffe::DeviceQuery();
+  std::string delimiter = ",";
+  std::vector<int> gpus = util::Context::parse_int_list(FLAGS_gpu, delimiter);
+  for (int i = 0; i < gpus.size(); ++i){
+    CHECK_GT(gpus[i], -1) << "Device ID:" << gpus[i] << ". Provide a valide device ID to query.";
+    LOG(INFO) << "Querying device ID = " << gpus[i];
+    caffe::Caffe::SetDevice(gpus[i]);
+    caffe::Caffe::DeviceQuery();
+  }
   return 0;
 }
 RegisterBrewFunction(device_query);
@@ -102,19 +106,32 @@ int train() {
   caffe::SolverParameter solver_param;
   caffe::ReadProtoFromTextFileOrDie(FLAGS_solver, &solver_param);
 
+  const int num_app_threads = FLAGS_num_table_threads - 1;
   // If the gpu flag is not provided, allow the mode and device to be set
-  // in the solver prototxt.
-  if (FLAGS_gpu < 0
-      && solver_param.solver_mode() == caffe::SolverParameter_SolverMode_GPU) {
-    FLAGS_gpu = solver_param.device_id();
-  }
-
-  // Set device id and mode
-  if (FLAGS_gpu >= 0) {
-    LOG(INFO) << "Using GPU with device ID " << FLAGS_gpu << " on client " << FLAGS_client_id;
-    Caffe::SetDevice(FLAGS_gpu);
+   // in the solver prototxt.
+  std::vector<int> device_ids;
+  std::string delimiter = ",";
+  if (FLAGS_gpu.length() > 0){
+    device_ids = util::Context::parse_int_list(FLAGS_gpu, delimiter);
+    LOG(INFO) << "Use GPUs with device IDs:";
+    for (int i = 0; i < device_ids.size(); ++i){
+      LOG(INFO) << "device id " << device_ids[i];
+    }
     Caffe::set_mode(Caffe::GPU);
-  } else {
+    Caffe::InitDevices(device_ids, num_app_threads);
+  }
+  else if (solver_param.solver_mode() == caffe::SolverParameter_SolverMode_GPU){
+    //Allow multipe device id in the solver prototxt
+    FLAGS_gpu = solver_param.device_id();
+    device_ids = util::Context::parse_int_list(FLAGS_gpu, delimiter);
+    LOG(INFO) << "Use GPUs with device IDs:";
+    for (int i = 0; i < device_ids.size(); ++i){
+      LOG(INFO) << "device id " << device_ids[i];
+    }
+    Caffe::set_mode(Caffe::GPU);
+    Caffe::InitDevices(device_ids, num_app_threads);
+  }
+  else {
     LOG(INFO) << "Using CPU.";
     Caffe::set_mode(Caffe::CPU);
   }
@@ -132,7 +149,6 @@ int train() {
 
   
   // Train
-  const int num_app_threads = FLAGS_num_table_threads - 1;
   LOG(INFO) << "Starting NN with " << num_app_threads << " worker threads "
       << "on client " << FLAGS_client_id;  
   std::vector<std::thread> threads(num_app_threads); 

@@ -184,7 +184,7 @@ void PoolingLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
   case PoolingParameter_PoolMethod_STOCHASTIC:
     if (Caffe::phase(this->thread_id_) == Caffe::TRAIN) {
       // We need to create the random index as well.
-      caffe_gpu_rng_uniform(count, Dtype(0), Dtype(1),
+      caffe_gpu_rng_uniform(this->device_id_, count, Dtype(0), Dtype(1),
                             rand_idx_.mutable_gpu_data());
       // NOLINT_NEXT_LINE(whitespace/operators)
       StoPoolForwardTrain<Dtype><<<CAFFE_GET_BLOCKS(count),
