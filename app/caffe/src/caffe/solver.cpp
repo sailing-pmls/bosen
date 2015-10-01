@@ -454,8 +454,10 @@ Dtype Solver<Dtype>::ForwardBackward(const vector<Blob<Dtype>* >& bottom) {
 template <typename Dtype>
 void Solver<Dtype>::ThreadSyncWithPS(const shared_ptr<Blob<Dtype> >& param,
     const int param_id, const int param_owner, const int clock) {
+#ifndef CPU_ONLY
   //bind the communication thread with the same device binded to thread_id_
   Caffe::SetDevice(Caffe::GetDeviceId(thread_id_));
+#endif
   ComputeUpdateValue(param_id);
   if (param_owner < 0) {
     // Push updates to PS
@@ -476,8 +478,10 @@ void Solver<Dtype>::ThreadSyncWithSVB(
     const shared_ptr<Blob<Dtype> >& param, const int param_id, 
     const shared_ptr<Layer<Dtype> >& layer, const int layer_id,
     const vector<Blob<Dtype>*>& top, const vector<Blob<Dtype>*>& bottom) {
+#ifndef CPU_ONLY
   //bind the communication thread with the same device binded to thread_id_
   Caffe::SetDevice(Caffe::GetDeviceId(thread_id_));
+#endif
   SufficientVectorQueue* local_svq = util::Context::local_sv_queue(layer_id);
   SufficientVectorQueue* remote_svq = util::Context::remote_sv_queue(layer_id);
   const int sv_a_size = top[0]->count() * sizeof(Dtype);

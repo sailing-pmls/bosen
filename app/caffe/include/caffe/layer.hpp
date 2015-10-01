@@ -64,7 +64,9 @@ class Layer {
       map<string, vector<int> >* layer_name_to_blob_global_idx = NULL) {
     net_id_ = net_id;
     thread_id_ = thread_id;
+#ifndef CPU_ONLY
     device_id_ = Caffe::GetDeviceId(thread_id);
+#endif
     if (init_ps) {
       CHECK_NOTNULL(num_tables);
       CHECK_NOTNULL(layer_name_to_blob_global_idx);
@@ -322,7 +324,9 @@ class Layer {
   /** -1: a layer of the train net; >0: a layer of the test net */
   int net_id_;
   int thread_id_;
+#ifndef CPU_ONLY
   int device_id_;
+#endif
   /** The protobuf that stores the layer parameters */
   LayerParameter layer_param_;
   /** The vector that stores the learnable parameters as a set of blobs. */

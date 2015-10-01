@@ -255,7 +255,9 @@ void CaffeEngine<Dtype>::Start() {
   int thread_id = thread_counter_++;
 
   // Set the device for current thread
+#ifndef CPU_ONLY
   Caffe::SetDevice(Caffe::GetDeviceId(thread_id));
+#endif
   util::Context& context = util::Context::get_instance();
   int client_id = context.get_int32("client_id");
   string solver_path = context.get_string("solver");

@@ -107,11 +107,14 @@ int train() {
   caffe::ReadProtoFromTextFileOrDie(FLAGS_solver, &solver_param);
 
   const int num_app_threads = FLAGS_num_table_threads - 1;
+#ifdef CPU_ONLY
+  FLAGS_gpu = "";
+#endif
   // If the gpu flag is not provided, allow the mode and device to be set
    // in the solver prototxt.
   std::vector<int> device_ids;
   std::string delimiter = ",";
-  if (FLAGS_gpu.length() > 0){
+  if (solver_param.solver_mode() == caffe::SolverParameter_SolverMode_GPU && FLAGS_gpu.length() > 0){
     device_ids = util::Context::parse_int_list(FLAGS_gpu, delimiter);
     LOG(INFO) << "Use GPUs with device IDs:";
     for (int i = 0; i < device_ids.size(); ++i){
@@ -120,7 +123,7 @@ int train() {
     Caffe::set_mode(Caffe::GPU);
     Caffe::InitDevices(device_ids, num_app_threads);
   }
-  else if (solver_param.solver_mode() == caffe::SolverParameter_SolverMode_GPU){
+  else if (solver_param.solver_mode() == caffe::SolverParameter_SolverMode_GPU && solver_param.device_id().length() > 0){
     //Allow multipe device id in the solver prototxt
     FLAGS_gpu = solver_param.device_id();
     device_ids = util::Context::parse_int_list(FLAGS_gpu, delimiter);

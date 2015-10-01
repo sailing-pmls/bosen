@@ -49,6 +49,10 @@ void Caffe::set_random_seed(const unsigned int seed) {
   Get().random_generator_.reset(new RNG(seed));
 }
 
+void Caffe::InitDevices(const std::vector<int> &device_ids, const int num_app_threads){
+  NO_GPU;
+} 
+
 void Caffe::SetDevice(const int device_id) {
   NO_GPU;
 }
@@ -169,9 +173,13 @@ int Caffe::GetDeviceId(){
 }
 
 int Caffe::GetDeviceId(const int thread_id){
-  CHECK_GT(Get().threads_devices_.size(), 0) << "Threads devices mapping is empty";
-  CHECK(Get().threads_devices_.count(thread_id) > 0) << "Cannot find binded device";
-  return Get().threads_devices_[thread_id];
+  int d = 0;
+  if (Caffe::mode()==GPU) {
+    CHECK_GT(Get().threads_devices_.size(), 0) << "Threads devices mapping is empty";
+    CHECK(Get().threads_devices_.count(thread_id) > 0) << "Cannot find binded device";
+    d = Get().threads_devices_[thread_id];
+  }
+  return d;
 }
 
 void Caffe::InitDevices(const std::vector<int> &device_ids, const int num_app_threads){
