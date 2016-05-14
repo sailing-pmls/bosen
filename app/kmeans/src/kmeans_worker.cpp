@@ -85,8 +85,8 @@ void KMeansWorker::PushObjective(int epoch, int totalEpochs, bool writeAssignmen
 	petuum::UpdateBatch<float> objective_update_batch(totalEpochs);
 	for(int i=0;i<totalEpochs;i++){
 		objective_update_batch.Update(i,0.0);
+		objective_update_batch.Update(i, ComputeObjective(start_range_, end_range_, writeAssignments));
 	}
-	objective_update_batch.Update(epoch, ComputeObjective(start_range_, end_range_, writeAssignments));
 	//LOG(INFO) << epoch << "   " << ComputeObjective(start_range_, end_range_);
 	
 	objective_values_.BatchInc(0, objective_update_batch);
