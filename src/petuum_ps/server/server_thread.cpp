@@ -53,7 +53,7 @@ void ServerThread::SetUpCommBus() {
   if (GlobalContext::get_num_clients() > 1) {
     comm_config.ltype_ = CommBus::kInProc | CommBus::kInterProc;
     HostInfo host_info = GlobalContext::get_server_info(my_id_);
-    comm_config.network_addr_ = host_info.ip + ":" + host_info.port;
+    comm_config.network_addr_ = "*:" + host_info.port;
   } else {
     comm_config.ltype_ = CommBus::kInProc;
   }

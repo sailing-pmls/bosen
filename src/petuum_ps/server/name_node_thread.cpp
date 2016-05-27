@@ -188,7 +188,7 @@ void NameNodeThread::SetUpCommBus() {
   if (GlobalContext::get_num_clients() > 1) {
     comm_config.ltype_ = CommBus::kInProc | CommBus::kInterProc;
     HostInfo host_info = GlobalContext::get_name_node_info();
-    comm_config.network_addr_ = host_info.ip + ":" + host_info.port;
+    comm_config.network_addr_ = "*:" + host_info.port;
   } else {
     comm_config.ltype_ = CommBus::kInProc;
   }
