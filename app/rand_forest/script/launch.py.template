@@ -39,9 +39,9 @@ petuum_params = {
     , "num_app_threads": 4
     , "num_comm_channels_per_client": 1 # 1~2 are usually enough.
     }
-
+build_dir = join(proj_dir, "build", "app", "rand_forest")
 prog_name = "rand_forest_main"
-prog_path = join(app_dir, "bin", prog_name)
+prog_path = join(build_dir, prog_name)
 
 env_params = (
   "GLOG_logtostderr=true "

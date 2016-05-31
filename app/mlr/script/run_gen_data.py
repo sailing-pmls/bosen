@@ -5,10 +5,20 @@ from os.path import dirname
 from os.path import join
 
 app_dir = dirname(dirname(os.path.realpath(__file__)))
-prog = join(app_dir, "bin", "gen_data_sparse")
+proj_dir = dirname(dirname(app_dir))
+
+build_dir = join(proj_dir,"build", "app", "mlr")
+prog = join(build_dir, "mlr_gendata_main")
 
 # no trailing /
 prefix_path = join(app_dir, "datasets")
+
+
+#app_dir = dirname(dirname(os.path.realpath(__file__)))
+#prog = join(app_dir, "bin", "gen_data_sparse")
+
+# no trailing /
+#prefix_path = join(app_dir, "datasets")
 
 params = {
     "num_train": 100

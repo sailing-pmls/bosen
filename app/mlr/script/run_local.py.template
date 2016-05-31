@@ -15,11 +15,15 @@ if len(sys.argv) != 3:
   sys.exit(1)
 
 # Please set the absolute path to app dir
-app_dir = "/path/to/bosen/app/mlr"
+app_dir = dirname(dirname(os.path.realpath(__file__))) 
+proj_dir = dirname(dirname(app_dir))
+
+build_dir = join(proj_dir, "build", "app", "mlr")  
+prog_name = "mlr_main"
+prog_path = join(build_dir, prog_name)
 
 client_id = sys.argv[1]
 hostfile = sys.argv[2]
-proj_dir = dirname(dirname(app_dir))
 
 params = {
     "train_file": "hdfs://cogito.local:8020/user/wdai/dataset/mlr/covtype.scale.train.small"
@@ -46,8 +50,6 @@ petuum_params = {
     , "num_comm_channels_per_client": 1 # 1~2 are usually enough.
     }
 
-prog_name = "mlr_main"
-prog_path = join(app_dir, "bin", prog_name)
 
 env_params = (
   "GLOG_logtostderr=true "

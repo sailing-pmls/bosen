@@ -6,9 +6,10 @@ import time
 
 hostfile_name = "localserver"
 
-app_dir = dirname(dirname(os.path.realpath(__file__)))
-proj_dir = dirname(dirname(app_dir))
+script_dir = dirname(dirname(os.path.realpath(__file__)))
+proj_dir = dirname(dirname(script_dir))
 
+app_dir = join(proj_dir, "build", "app", "mlr")
 hostfile = join(proj_dir, "machinefiles", hostfile_name)
 
 ssh_cmd = (
@@ -18,8 +19,8 @@ ssh_cmd = (
     )
 
 params = {
-    "train_file": join(app_dir, "datasets/covtype.scale.train.small")
-    , "test_file": join(app_dir, "datasets/covtype.scale.test.small")
+    "train_file": join(script_dir, "datasets/covtype.scale.train.small")
+    , "test_file": join(script_dir, "datasets/covtype.scale.test.small")
     , "global_data": "true"
     , "perform_test": "true"
     , "use_weight_file": "false"
@@ -43,7 +44,7 @@ petuum_params = {
     }
 
 prog_name = "mlr_main"
-prog_path = join(app_dir, "bin", prog_name)
+prog_path = join(app_dir, prog_name)
 
 env_params = (
   "GLOG_logtostderr=true "

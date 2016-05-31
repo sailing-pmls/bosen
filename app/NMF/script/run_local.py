@@ -15,7 +15,8 @@ if len(sys.argv) != 3:
   sys.exit(1)
 
 # Please set the FULL app dir path here
-app_dir = "/home/user/bosen/app/NMF"
+app_dir = dirname(dirname(os.path.realpath(__file__)))
+
 
 client_id = sys.argv[1]
 hostfile = sys.argv[2]
@@ -62,8 +63,9 @@ petuum_params = {
     "num_worker_threads": 4
     }
 
+build_dir = join(proj_dir, "build", "app", "NMF")
 prog_name = "nmf_main"
-prog_path = join(app_dir, "bin", prog_name)
+prog_path = join(build_dir, prog_name)
 
 hadoop_path = os.popen('hadoop classpath --glob').read()
 
