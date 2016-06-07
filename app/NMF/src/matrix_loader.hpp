@@ -4,7 +4,7 @@
 #include <vector>
 #include <mutex>
 
-#include "util/Eigen/Dense"
+#include "Eigen/Dense"
 
 // Elements whose absolute value is smaller than INFINITESIMAL stored in matrix 
 // would be considered 0 at output stage

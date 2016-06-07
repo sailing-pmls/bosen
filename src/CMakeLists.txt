@@ -21,6 +21,7 @@ find_package(LibCuckoo REQUIRED)
 find_package(Gflags REQUIRED)
 find_package(Tcmalloc REQUIRED)
 find_package(Threads REQUIRED)
+find_package(Eigen3 REQUIRED)
 #find_package(rt REQUIRED)
 #find_package(nsl REQUIRED)
 
@@ -34,7 +35,7 @@ target_include_directories(petuum_bosen PUBLIC
         ${YAML_INCLUDE_DIRS} ${GPERFTOOLS_INCLUDE_DIRS} ${SNAPPY_INCLUDE_DIRS}
         ${SPARSEHASH_INCLUDE_DIR}  ${LevelDB_INCLUDE_PATH} ${GFLAGS_INCLUDE_DIRS}
         ${LIBCONFIG_INCLUDE_DIR} ${LIBCUCKOO_INCLUDE_DIRS} 
-        ${Tcmalloc_INCLUDE_DIR}) 
+        ${Tcmalloc_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR}) 
 target_link_libraries(petuum_bosen rt nsl
         ${ZeroMQ_LIBRARIES} 
         ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} 

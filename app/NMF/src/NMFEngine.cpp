@@ -11,7 +11,7 @@
 #include <io/general_fstream.hpp>
 
 
-#include "util/Eigen/Dense"
+#include "Eigen/Dense"
 #include "util/context.hpp"
 
 namespace NMF {
