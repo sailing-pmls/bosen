@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 2.8)
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
 
-add_subdirectory(src)
 add_subdirectory(third_party)
+add_subdirectory(src)
 add_subdirectory(app/dml)
 add_subdirectory(app/dnn)
 add_subdirectory(app/dnn_speech)
