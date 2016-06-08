@@ -18,3 +18,20 @@ In addition to distributed ML programming tools, Petuum comes with many distribu
 
 Petuum comes from "perpetuum mobile," which is a musical style characterized by a continuous steady stream of notes. Paganini's Moto Perpetuo is an excellent example. It is our goal to build a system that runs efficiently and reliably -- in perpetual motion.
 
+
+CMake Build
+=========
+
+First install necessary libraries on the system:
+```
+sudo apt-get -y install libgoogle-glog-dev libzmq3-dev libyaml-cpp-dev \
+  libgoogle-perftools-dev libsnappy-dev libsparsehash-dev libgflags-dev \
+  libboost-system1.55-dev libboost-thread1.55-dev libleveldb-dev libconfig++-dev \
+  libghc-hashtables-dev libtcmalloc-minimal4 libevent-pthreads-2.0-5 libeigen3-dev
+```
+Then do the following to compile the project:
+```
+mkdir build
+cd build && cmake ..
+make -j
+```
