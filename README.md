@@ -1,7 +1,7 @@
 Petuum v1.1
 ===========
 
-To install Petuum, please refer to the Petuum wiki manual: https://github.com/petuum/bosen/wiki<br>
+To install Petuum, please refer to the Petuum [documentation](http://docs.petuum.com/).
 
 Website: http://petuum.org
 
