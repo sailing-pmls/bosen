@@ -42,7 +42,10 @@ petuum_params = {
 
 build_dir = join(proj_dir, "build", "app", "dml")
 prog_name = "dml_main"
-prog_path = join(build_dir, prog_name)
+build_dir = "build"
+app_name = app_dir.split('/')[-1]
+prog_path = os.path.join(proj_dir, build_dir, "app", app_name, prog_name)
+
 
 hadoop_path = os.popen('hadoop classpath --glob').read()
 

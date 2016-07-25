@@ -31,7 +31,10 @@ petuum_params = {
     }
 
 prog_name = "lr_main"
-prog_path = join(app_dir, "bin", prog_name)
+#prog_path = join(app_dir, "bin", prog_name)
+prog_path = os.path.join(proj_dir, "build", "app", "demo", prog_name)
+
+
 
 env_params = (
   "GLOG_logtostderr=true "
