@@ -103,12 +103,24 @@ int32_t MLRSGDSolver::ZeroOneLoss(const std::vector<float>& prediction,
   return (max_idx == label) ? 0 : 1;
 }
 
+int32_t MLRSGDSolver::TestAccuracy(const std::vector<float>& prediction,
+    int32_t label) const {
+  int max_idx = 0;
+  float max_val = prediction[0];
+  for (int i = 1; i < num_labels_; ++i) {
+    if (prediction[i] > max_val) {
+      max_val = prediction[i];
+      max_idx = i;
+    }
+  }
+  return (max_idx == label) ? 1 : 0;
+}
+
 float MLRSGDSolver::CrossEntropyLoss(const std::vector<float>& prediction,
     int32_t label) const {
   CHECK_LE(prediction[label], 1);
   return -petuum::ml::SafeLog(prediction[label]);
 }
-
 
 std::vector<float> MLRSGDSolver::Predict(
     const petuum::ml::AbstractFeature<float>& feature) const {

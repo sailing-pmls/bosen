@@ -34,9 +34,14 @@ public:
   std::vector<float> Predict(
       const petuum::ml::AbstractFeature<float>& feature) const;
 
-  // Return 0 if a prediction (of length num_labels_) correctly gives the
+  // Return 1 if a prediction (of length num_labels_) correctly gives the
   // ground truth label 'label'; 0 otherwise.
   int32_t ZeroOneLoss(const std::vector<float>& prediction, int32_t label)
+    const;
+
+  // Return 1 if a prediction (of length num_labels_) correctly gives the
+  // ground truth label 'label'; 0 otherwise.
+  int32_t TestAccuracy(const std::vector<float>& prediction, int32_t label)
     const;
 
   // Compute cross entropy loss of a prediction (of length num_labels_) and the
