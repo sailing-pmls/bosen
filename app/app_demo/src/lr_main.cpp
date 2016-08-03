@@ -2,7 +2,7 @@
 
 int main(int argc, char *argv[]) {
   LRApp lrapp;
-  lrapp.run(2);
+  lrapp.Run(2);
   
   return 0;
 }

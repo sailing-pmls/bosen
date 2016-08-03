@@ -3,9 +3,9 @@
 #include "lr_app.hpp"
 
 // Step 1. Implement the initialization function
-void LRApp::initialize(petuum::TableGroupConfig &table_group_config) {
+void LRApp::Initialize(petuum::TableGroupConfig &table_group_config) {
   // Read data
-  readData();
+  ReadData();
 
   // Step 1.0. Register Row types
   petuum::PSTableGroup::RegisterRow<petuum::DenseRow<float> >(kDenseRowFloatTypeID);
@@ -29,7 +29,7 @@ void LRApp::initialize(petuum::TableGroupConfig &table_group_config) {
 }
 
 // Step 2. Implement the worker thread function
-void LRApp::runWorkerThread(int thread_id) {
+void LRApp::RunWorkerThread(int thread_id) {
   // Step 2.0. Gain Table Access
   petuum::Table<float> W = petuum::PSTableGroup::GetTableOrDie<float>(kDenseRowFloatTypeID);
   
@@ -61,7 +61,7 @@ void LRApp::runWorkerThread(int thread_id) {
     memset(grad, 0, feat_dim * sizeof(float));
     
     // Calculate gradients
-    calGrad();
+    CalGrad();
     
     // Update weights
     petuum::DenseUpdateBatch<float> update_batch(0, feat_dim);
@@ -69,17 +69,17 @@ void LRApp::runWorkerThread(int thread_id) {
     W.DenseBatchInc(0, update_batch);
     
     // Evaluate on training set
-    if (epoch % eval_epoch == 0 && (thread_id + epoch/eval_epoch) % 2 == 0) printLoss(epoch);
+    if (epoch % eval_epoch == 0 && (thread_id + epoch/eval_epoch) % 2 == 0) PrintLoss(epoch);
     
     // Step 2.3. Don't forget the Clock Tick
     petuum::PSTableGroup::Clock();
   }
   
   // Evaluate on test set
-  if (thread_id == 0) eval();
+  if (thread_id == 0) Eval();
 }
 
-void LRApp::readData() {
+void LRApp::ReadData() {
   x = new float*[sample_size];
   for (int i = 0; i < sample_size; ++i) x[i] = new float[feat_dim];
   y = new float[sample_size];
@@ -107,7 +107,7 @@ void LRApp::readData() {
   fin.close();
 }
 
-void LRApp::calGrad() {
+void LRApp::CalGrad() {
   for (int i = 0; i < batch_size; ++i) {
     int k = rand() % sample_size;
     float h = 0;
@@ -119,7 +119,7 @@ void LRApp::calGrad() {
   }
 }
 
-void LRApp::printLoss(int epoch) {
+void LRApp::PrintLoss(int epoch) {
   double loss = 0;
   for (int i = 0; i < sample_size; ++i) {
     double h = 0;
@@ -132,7 +132,7 @@ void LRApp::printLoss(int epoch) {
   std::cout << "iter: " << epoch << " loss: " << loss << std::endl;
 }
 
-void LRApp::eval() {
+void LRApp::Eval() {
   float acc = 0;
   for (int i = 0; i < test_size; ++i) {
     float h = 0;

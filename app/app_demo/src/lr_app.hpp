@@ -32,15 +32,15 @@ public:
   float *grad;
   
   // Step 1. Implement the initialization function
-  void initialize(petuum::TableGroupConfig &table_group_config);
+  void Initialize(petuum::TableGroupConfig &table_group_config);
   
   // Step 2. Implement the worker thread function
-  void runWorkerThread(int thread_id);
+  void RunWorkerThread(int thread_id);
   
-  void readData();
-  void calGrad();
-  void printLoss(int epoch);
-  void eval();
+  void ReadData();
+  void CalGrad();
+  void PrintLoss(int epoch);
+  void Eval();
 };
 
 #endif // LR_APP_H_

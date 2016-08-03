@@ -15,20 +15,20 @@ public:
 
   ~PsApplication() {};
   
-  virtual void initialize(petuum::TableGroupConfig &table_group_config) = 0;
+  virtual void Initialize(petuum::TableGroupConfig &table_group_config) = 0;
   
-  virtual void runWorkerThread(int threadId) = 0;
+  virtual void RunWorkerThread(int threadId) = 0;
   
-  virtual void startWorkerThread() {
+  virtual void StartWorkerThread() {
     petuum::PSTableGroup::RegisterThread();
     
     int thread_id = thread_counter_++;
-    runWorkerThread(thread_id);
+    RunWorkerThread(thread_id);
     
     petuum::PSTableGroup::DeregisterThread();
   }
   
-  void run(int32_t num_worker_threads=1) {
+  void Run(int32_t num_worker_threads=1) {
     google::InitGoogleLogging("PsApp");
 
     process_barrier.reset(new boost::barrier(num_worker_threads));
@@ -43,7 +43,7 @@ public:
     // 1. Call RegisterRow
     // 2. Init PSTableGroup
     // 3. Create PSTable
-    initialize(table_group_config);
+    Initialize(table_group_config);
     
     // 3. Run threads
     LOG(INFO) << "Starting program with " << num_worker_threads << " threads "
