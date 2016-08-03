@@ -51,7 +51,7 @@ public:
     
     std::vector<std::thread> threads(num_worker_threads);
     for (auto& thr : threads) {
-      thr = std::thread(&PsApplication::startWorkerThread, this);
+      thr = std::thread(&PsApplication::StartWorkerThread, this);
     }
     for (auto& thr : threads) {
       thr.join();
