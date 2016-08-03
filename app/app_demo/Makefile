@@ -1,4 +1,6 @@
+# Your app directory
 APP_DIR := $(shell readlink $(dir $(lastword $(MAKEFILE_LIST))) -f)
+# Petuum root directory
 PETUUM_ROOT = $(APP_DIR)/../../
 
 include $(PETUUM_ROOT)/defns.mk

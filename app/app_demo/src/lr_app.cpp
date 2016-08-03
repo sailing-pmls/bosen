@@ -30,16 +30,18 @@ void LRApp::initialize(petuum::TableGroupConfig &table_group_config) {
 
 // Step 2. Implement the worker thread function
 void LRApp::runWorkerThread(int thread_id) {
-  // Gain Table Access
+  // Step 2.0. Gain Table Access
   petuum::Table<float> W = petuum::PSTableGroup::GetTableOrDie<float>(kDenseRowFloatTypeID);
   
-  // Initialize weights
+  // Step 2.1. Initialize parameters
   if (thread_id == 0) {
     petuum::DenseUpdateBatch<float> update_batch(0, feat_dim);
     for (int i = 0; i < feat_dim; ++i) update_batch[i] = (rand() % 1001 - 500) / 500.0;
     W.DenseBatchInc(0, update_batch);
   }
   // Sync after initialization
+  // Note that process_barrier is of type boost::scoped_ptr<boost::barrier>
+  // And it is taken care of in class PsApplication
   process_barrier->wait();
   
   if (thread_id == 0) std::cout << "training starts" << std::endl;
@@ -48,6 +50,7 @@ void LRApp::runWorkerThread(int thread_id) {
   paras = new float[feat_dim];
   grad = new float[feat_dim];
   
+  // Step 2.2. Read & Update parameters
   for (int epoch = 0; epoch < num_epoch; ++epoch) {
     // Get weights from Parameter Server
     petuum::RowAccessor row_acc;
@@ -68,7 +71,7 @@ void LRApp::runWorkerThread(int thread_id) {
     // Evaluate on training set
     if (epoch % eval_epoch == 0 && (thread_id + epoch/eval_epoch) % 2 == 0) printLoss(epoch);
     
-    // Clock tick
+    // Step 2.3. Don't forget the Clock Tick
     petuum::PSTableGroup::Clock();
   }
   
