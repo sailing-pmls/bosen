@@ -6,17 +6,17 @@
 Welcome to Bosen's documentation!
 =================================
 
+Indices and search:
+
+* :ref:`genindex`
+* :ref:`search`
+
+
 Contents:
 
 .. toctree::
    :maxdepth: 2
 
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. doxygenindex::
+   :project: project
 

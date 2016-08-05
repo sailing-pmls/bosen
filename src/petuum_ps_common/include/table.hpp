@@ -11,9 +11,11 @@
 
 namespace petuum {
 
-// UPDATE can be V = {int, double, ...} when the entry is simple numerical
-// type. If the entry type is a struct, UPDATE can be id:val pair, like {1:5}
-// which increment field 1 of struct by 5.
+/**
+ * UPDATE can be V = {int, double, ...} when the entry is simple numerical
+ * type. If the entry type is a struct, UPDATE can be id:val pair, like {1:5}
+ * which increment field 1 of struct by 5.
+ */
 template<typename UPDATE>
 class UpdateBatch {
 public:
@@ -64,12 +66,16 @@ private:
   std::vector<UPDATE> updates_;
 };
 
-// This class is provided mainly for convience than complete functionality.
-// It has no dependency to other classes in petuum ps.
+/**
+ * This class is provided mainly for convience than complete functionality.
+ * It has no dependency to other classes in petuum ps.
+ */
 template<typename UPDATE>
 class DenseUpdateBatch {
 public:
-  // Underlying updates are not initialized
+  /**
+   * Underlying updates are not initialized
+   */
   DenseUpdateBatch(int32_t index_st,
                    int32_t num_updates):
       index_st_(index_st),
@@ -103,7 +109,9 @@ private:
   std::vector<UPDATE> updates_;
 };
 
-// User table is stores a lightweight pointer to ClientTable.
+/**
+ * User table is stores a lightweight pointer to ClientTable.
+ */
 template<typename UPDATE>
 class Table {
 public:
@@ -156,8 +164,10 @@ public:
     system_table_->FlushThreadCache();
   }
 
-  // row_accessor helps maintain the reference count to prevent premature
-  // cache eviction.
+  /**
+   * row_accessor helps maintain the reference count to prevent premature
+   * cache eviction.
+   */
   void Get(int32_t row_id, RowAccessor *row_accessor) {
     system_table_->Get(row_id, row_accessor);
   }
