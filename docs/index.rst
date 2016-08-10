@@ -6,6 +6,9 @@
 Welcome to Bosen's documentation!
 =================================
 
+.. toctree::
+   :maxdepth: 3
+
 .. autodoxygenindex::
    :project: Bosen
 
