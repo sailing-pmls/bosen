@@ -43,10 +43,10 @@ if read_the_docs_build:
 extensions = ['breathe']
 
 breathe_projects = {
-    "project":"xml/",
+    "Bosen":"xml/",
 }
 
-breathe_default_project = "project"
+breathe_default_project = "Bosen"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

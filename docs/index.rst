@@ -7,7 +7,7 @@ Welcome to Bosen's documentation!
 =================================
 
 .. autodoxygenindex::
-   :project: project
+   :project: Bosen
 
 Indices and tables
 ==================
