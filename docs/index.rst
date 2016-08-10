@@ -9,7 +9,7 @@ Welcome to Bosen's documentation!
 .. toctree::
    :maxdepth: 3
 
-.. autodoxygenindex::
+.. doxygenindex::
    :project: Bosen
 
 Indices and tables
