@@ -10,4 +10,4 @@ QUIET            = YES
 JAVADOC_AUTOBRIEF = YES
 GENERATE_HTML = NO
 GENERATE_XML = YES
-EXCLUDE_PATTERNS = constants.hpp system_gflags.hpp table_gflags.hpp petuum_ps.hpp ps_table_group.cpp row_access.hpp 
+EXCLUDE_PATTERNS = constants.hpp system_gflags.hpp table_gflags.hpp petuum_ps.hpp ps_table_group.cpp
