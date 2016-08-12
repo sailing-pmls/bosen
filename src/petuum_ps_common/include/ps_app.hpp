@@ -12,12 +12,6 @@
 #include <glog/logging.h>
 #include <gflags/gflags.h>
 
-DECLARE_string(hostfile);
-DECLARE_int32(client_id);
-
-//DEFINE_string(hostfile, "", "path to Petuum PS server configuration file");
-//DEFINE_int32(client_id, 0, "This client's ID");
-
 namespace petuum {
 
 enum RowType {
@@ -46,11 +40,9 @@ struct TableConfig {
   int oplog_type{RowOpLogType::kDenseRowOpLog};
 };
 
-class PsApplication {
+class PsApp {
 public:
   void Run(int num_worker_threads) {
-    //google::InitGoogleLogging("PsApp");
-
     process_barrier_.reset(new boost::barrier(num_worker_threads));
 
     // Step 1.0. Register common row types
@@ -67,6 +59,8 @@ public:
 
     // Step 1.1. Initialize Table Group
     TableGroupConfig table_group_config;
+    table_group_config.num_comm_channels_per_client = 1;
+    table_group_config.num_total_clients = FLAGS_num_clients;
     table_group_config.num_tables = configs.size();
     GetHostInfos(FLAGS_hostfile, &table_group_config.host_map);
     table_group_config.client_id = FLAGS_client_id;
@@ -77,7 +71,6 @@ public:
     // False to disallow table access for the main thread.
     PSTableGroup::Init(table_group_config, false);
 
-    InitApp();
     // Create Tables
     for (int i = 0; i < configs.size(); ++i) {
       auto config = ConvertTableConfig(configs[i]);
@@ -86,12 +79,14 @@ public:
     }
     PSTableGroup::CreateTableDone();
 
+    InitApp();
+
     // Spin num_worker_threads to run.
     LOG(INFO) << "Starting program with " << num_worker_threads << " threads "
       << "on client " << table_group_config.client_id;
     std::vector<std::thread> threads(num_worker_threads);
     for (auto& thr : threads) {
-      thr = std::thread(&PsApplication::RunWorkerThread, this);
+      thr = std::thread(&PsApp::RunWorkerThread, this);
     }
     for (auto& thr : threads) {
       thr.join();
@@ -103,9 +98,9 @@ public:
   }
 
 protected:
-  PsApplication() : thread_counter_(0) {};
+  PsApp() : thread_counter_(0) {};
 
-  ~PsApplication() {};
+  ~PsApp() {};
 
   // InitApp() can data loading in single-thread. Or it can do nothing. It may
   // not access PS table.

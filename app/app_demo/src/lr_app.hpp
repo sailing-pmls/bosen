@@ -3,7 +3,7 @@
 // Logistic Regression demo
 
 // Step 0. Include the Bosen header file and the Bosen App template file
-#include <petuum_ps_common/include/ps_application.hpp>
+#include <petuum_ps_common/include/ps_app.hpp>
 #include <petuum_ps_common/include/petuum_ps.hpp>
 #include <cstdint>
 #include <vector>
@@ -20,7 +20,7 @@ struct LRAppConfig {
   int w_staleness = 0;
 };
 
-class LRApp : public petuum::PsApplication {
+class LRApp : public petuum::PsApp {
 public:
   LRApp(const LRAppConfig& config);
 
