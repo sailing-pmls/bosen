@@ -14,12 +14,12 @@ APP_OBJ = $(APP_SRC:.cpp=.o)
 
 all: APP
 
-APP: $(APP_BIN)/app_demo
+APP: $(APP_BIN)/lr_main
 
 $(APP_BIN):
 	mkdir -p $(APP_BIN)
 
-$(APP_BIN)/app_demo: $(APP_OBJ) $(PETUUM_PS_LIB) $(PETUUM_ML_LIB) $(APP_BIN)
+$(APP_BIN)/lr_main: $(APP_OBJ) $(PETUUM_PS_LIB) $(PETUUM_ML_LIB) $(APP_BIN)
 	$(PETUUM_CXX) $(PETUUM_CXXFLAGS) $(PETUUM_INCFLAGS) \
 	$(APP_OBJ) $(PETUUM_PS_LIB) $(PETUUM_ML_LIB) $(PETUUM_LDFLAGS) -o $@
 

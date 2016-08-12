@@ -1,46 +1,63 @@
-#ifndef LR_APP_H_
-#define LR_APP_H_
+#pragma once
 
 // Logistic Regression demo
 
 // Step 0. Include the Bosen header file and the Bosen App template file
 #include <petuum_ps_common/include/ps_application.hpp>
 #include <petuum_ps_common/include/petuum_ps.hpp>
-#include <iostream>
-#include <fstream>
+#include <cstdint>
+#include <vector>
 
-class LRApp : public PsApplication {
-public:
-  const int32_t kDenseRowFloatTypeID = 0;
-  
-  int32_t sample_size = 399;
-  int32_t feat_dim = 30;
-  int32_t num_epoch = 1000;
-  int32_t eval_epoch = 100;
+struct LRAppConfig {
+  int64_t train_size = 399;
+  int64_t feat_dim = 30;
+  int num_epochs = 1000;
+  int eval_epochs = 100;
   float learning_rate = 1e-4;
   float lambda = 1e-1;
-  int32_t batch_size = 100;
-  int32_t test_size = 170;
-  
-  float **x;
-  float *y;
-  
-  float **test_x;
-  float *test_y;
+  int batch_size = 100;
+  int64_t test_size = 170;
+  int w_staleness = 0;
+};
 
-  float *paras;
-  float *grad;
-  
-  // Step 1. Implement the initialization function
-  void Initialize(petuum::TableGroupConfig &table_group_config);
-  
+class LRApp : public petuum::PsApplication {
+public:
+  LRApp(const LRAppConfig& config);
+
+  std::vector<petuum::TableConfig> ConfigTables() override;
+
+  // Initialization executed by one thread (cannot access table).
+  void InitApp() override;
+
   // Step 2. Implement the worker thread function
-  void RunWorkerThread(int thread_id);
-  
+  void WorkerThread(int thread_id) override;
+
+private:
   void ReadData();
   void CalGrad();
   void PrintLoss(int epoch);
   void Eval();
-};
 
-#endif // LR_APP_H_
+private:
+  // All member fields need to end with '_'
+  int64_t train_size_;
+  int64_t feat_dim_;
+  int num_epochs_;
+  int eval_epochs_;
+  float learning_rate_;
+  float lambda_;
+  int batch_size_;
+  int64_t test_size_;
+  int w_staleness_;
+
+  // TODO(wdai): Never use C array. Use C++ vector instead. Currently the
+  // code has memory leak (no delete in destructor).
+  float **x_;
+  float *y_;
+
+  float **test_x_;
+  float *test_y_;
+
+  float *paras_;
+  float *grad_;
+};
