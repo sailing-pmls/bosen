@@ -13,7 +13,9 @@
 
 namespace petuum {
 
-// MPMCQueue is a multi-producer-multi-consumer bounded buffer.
+/**
+ * MPMCQueue is a multi-producer-multi-consumer bounded buffer.
+ */
 
 template<typename T>
 class MPMCQueue : boost::noncopyable {

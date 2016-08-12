@@ -16,49 +16,65 @@ namespace petuum {
 
 namespace {
 
-// We will use lock pool of size (num_threads * kLockPoolSizeExpansionFactor).
+/**
+ * We will use lock pool of size (num_threads * kLockPoolSizeExpansionFactor).
+ */
 int32_t kLockPoolSizeExpansionFactor = 20;
 
 }   // anonymous namespace
 
-// StripedLock does not support scoped lock. MUTEX must implement Lockable
-// interface.
+/**
+ * StripedLock does not support scoped lock. MUTEX must implement Lockable
+ * interface.
+ */
 template<typename K,
 typename MUTEX = std::mutex,
 typename HASH = std::hash<K> >
 class StripedLock : boost::noncopyable {
 public:
-  // Determine number of locks based on number of cores.
+  /**
+   * Determine number of locks based on number of cores.
+   */
   StripedLock() :
     StripedLock(get_nprocs_conf() * kLockPoolSizeExpansionFactor) { }
 
-  // Initialize with number of locks in the pool.
+  /**
+   * Initialize with number of locks in the pool.
+   */
   explicit StripedLock(int lock_pool_size) :
     lock_pool_size_(lock_pool_size),
     lock_pool_(new MUTEX[lock_pool_size_]) {
     //VLOG(0) << "Lock pool size: " << lock_pool_size_;
     }
 
-  // Lock index idx.
+  /**
+   * Lock index idx.
+   */
   inline void Lock(K idx) {
     int lock_idx = GetLockIndex(idx);
     lock_pool_[lock_idx].lock();
   }
 
-  // Lock index idx, and let unlocker unlock it later on.
+  /**
+   * Lock index idx, and let unlocker unlock it later on.
+   */
   inline void Lock(K idx, Unlocker<MUTEX>* unlocker) {
     int lock_idx = GetLockIndex(idx);
     lock_pool_[lock_idx].lock();
     unlocker->SetLock(&lock_pool_[lock_idx]);
   }
 
-  // Lock index idx.
+  /**
+   * Lock index idx.
+   */
   inline bool TryLock(K idx) {
     int lock_idx = GetLockIndex(idx);
     return lock_pool_[lock_idx].try_lock();
   }
 
-  // Lock index idx.
+  /**
+   * Lock index idx.
+   */
   inline bool TryLock(K idx, Unlocker<MUTEX>* unlocker) {
     int lock_idx = GetLockIndex(idx);
     if (lock_pool_[lock_idx].try_lock()) {
@@ -68,7 +84,9 @@ public:
     return false;
   }
 
-  // Unlock.
+  /**
+   * Unlock.
+   */
   inline void Unlock(K idx) {
     int lock_idx = GetLockIndex(idx);
     lock_pool_[lock_idx].unlock();
@@ -80,13 +98,19 @@ private:
     return int(idx) % lock_pool_size_;
   }
 
-  // Use default HASH function.
+  /**
+   * Use default HASH function.
+   */
   static HASH hasher;
 
-  // Size of the pool. Currently does not support resizing.
+  /**
+   * Size of the pool. Currently does not support resizing.
+   */
   const int32_t lock_pool_size_;
 
-  // pool of mutexes.
+  /**
+   * pool of mutexes.
+   */
   boost::scoped_array<MUTEX> lock_pool_;
 };
 

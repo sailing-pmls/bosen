@@ -6,7 +6,9 @@
 
 namespace petuum {
 
-// A buffer that allows appending records to it.
+/**
+ * A buffer that allows appending records to it.
+ */
 class RecordBuff : boost::noncopyable {
 public:
   RecordBuff() {
@@ -25,7 +27,9 @@ public:
     //VLOG(0) << "mem_size_ = " << mem_size_;
   };
 
-  // does not take ownership of the memory
+  /**
+   * does not take ownership of the memory
+   */
   void *ResetMem(void *mem, size_t size) {
     void *old_mem = mem_;
     mem_ = reinterpret_cast<uint8_t*>(mem);

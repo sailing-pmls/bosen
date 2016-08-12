@@ -9,7 +9,9 @@
 
 namespace petuum {
 
-// Fixed size sparse vector
+/**
+ * Fixed size sparse vector
+ */
 class SparseVector : boost::noncopyable {
 public:
   SparseVector(size_t capacity, size_t value_size):

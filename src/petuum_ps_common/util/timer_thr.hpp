@@ -9,7 +9,9 @@ namespace petuum {
 
 class NanoTimer{
 
-  // true if time continue, false if timer stop
+  /**
+   * true if time continue, false if timer stop
+   */
   typedef int32_t (*TimerHandler)(void *, int32_t);
 
   struct TimerThrInfo{
