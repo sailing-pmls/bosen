@@ -18,10 +18,11 @@ ssh_cmd = (
     "-o UserKnownHostsFile=/dev/null "
     )
 params = {
-    "lambda": 0.1
+    "input_dir": join(app_dir, "input/")
+    , "lambda": 1e+3
     , "batch_size": 100
     , "num_app_threads": 2
-    , "w_staleness": 0
+    , "w_staleness": 1
     }
 
 petuum_params = {

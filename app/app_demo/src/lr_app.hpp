@@ -7,14 +7,16 @@
 #include <petuum_ps_common/include/petuum_ps.hpp>
 #include <cstdint>
 #include <vector>
+#include <string>
 
 struct LRAppConfig {
+  std::string input_dir;
   int64_t train_size = 399;
   int64_t feat_dim = 30;
   int num_epochs = 1000;
   int eval_epochs = 100;
   float learning_rate = 1e-4;
-  float lambda = 1e-1;
+  float lambda = 1e+3;
   int batch_size = 100;
   int64_t test_size = 170;
   int w_staleness = 0;
@@ -35,7 +37,7 @@ public:
 private:
   void ReadData();
   void CalGrad();
-  void PrintLoss(int epoch);
+  void PrintAcc(int epoch);
   void Eval();
 
 private:
@@ -49,15 +51,15 @@ private:
   int batch_size_;
   int64_t test_size_;
   int w_staleness_;
+  std::string input_dir_;
+  int sample_ptr_;
 
-  // TODO(wdai): Never use C array. Use C++ vector instead. Currently the
-  // code has memory leak (no delete in destructor).
-  float **x_;
-  float *y_;
+  std::vector<std::vector<float> > x_;
+  std::vector<float> y_;
 
-  float **test_x_;
-  float *test_y_;
+  std::vector<std::vector<float> > test_x_;
+  std::vector<float> test_y_;
 
-  float *paras_;
-  float *grad_;
+  std::vector<float> paras_;
+  std::vector<double> grad_;
 };

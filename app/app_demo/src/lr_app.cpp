@@ -5,12 +5,13 @@
 #include <iostream>
 #include <fstream>
 #include <cstdint>
+#include <algorithm>
 
 LRApp::LRApp(const LRAppConfig& config) :
 train_size_(config.train_size), feat_dim_(config.feat_dim),
 num_epochs_(config.num_epochs), eval_epochs_(config.eval_epochs),
-  learning_rate_(config.learning_rate),
-lambda_(config.lambda), batch_size_(config.batch_size),
+learning_rate_(config.learning_rate), input_dir_(config.input_dir),
+lambda_(config.lambda), batch_size_(config.batch_size), sample_ptr_(0),
 test_size_(config.test_size), w_staleness_(config.w_staleness) { }
 
 std::vector<petuum::TableConfig> LRApp::ConfigTables() {
@@ -50,8 +51,8 @@ void LRApp::WorkerThread(int thread_id) {
   }
 
   // Create Local parameters & gradients buffer
-  paras_ = new float[feat_dim_];
-  grad_ = new float[feat_dim_];
+  paras_.reserve(feat_dim_);
+  grad_.reserve(feat_dim_);
 
   // Step 2.2. Read & Update parameters
   for (int epoch = 0; epoch < num_epochs_; ++epoch) {
@@ -63,27 +64,26 @@ void LRApp::WorkerThread(int thread_id) {
       paras_[i] = r[i];
     }
 
-    // Comment(wdai): Use std::fill from #include <algorithm>. Also
-    // use std::vector> for grad_
-    //
     // Reset gradients
-    memset(grad_, 0, feat_dim_ * sizeof(float));
+    std::fill(grad_.begin(), grad_.end(), 0.0);
 
     // Calculate gradients
     CalGrad();
 
     // Update weights
     petuum::DenseUpdateBatch<float> update_batch(0, feat_dim_);
+    learning_rate_ /= 1.005;
     for (int i = 0; i < feat_dim_; ++i) {
-      update_batch[i] = - learning_rate_ *
+      update_batch[i] = 0.0 - learning_rate_ *
         (grad_[i] / batch_size_ + lambda_ * paras_[i]);
     }
+
     W.DenseBatchInc(0, update_batch);
 
     // Evaluate on training set
     if (epoch % eval_epochs_ == 0
-        && (thread_id + epoch/eval_epochs_) % 2 == 0) {
-      PrintLoss(epoch);
+        && thread_id == 0) {
+      PrintAcc(epoch);
     }
 
     // Step 2.3. Don't forget the Clock Tick
@@ -97,38 +97,60 @@ void LRApp::WorkerThread(int thread_id) {
 }
 
 void LRApp::ReadData() {
-  x_ = new float*[train_size_];
-  for (int i = 0; i < train_size_; ++i) x_[i] = new float[feat_dim_];
-  y_ = new float[train_size_];
+  std::string train_x = input_dir_ + "br_train_x.data";
+  std::string train_y = input_dir_ + "br_train_y.data";
+  std::string test_x = input_dir_ + "br_test_x.data";
+  std::string test_y = input_dir_ + "br_test_y.data";
+  
+  x_.reserve(train_size_);
+  for (int i = 0; i < train_size_; ++i) {
+    x_[i].reserve(feat_dim_);
+  }
+  y_.reserve(train_size_);
 
-  std::ifstream fin("./input/br_train_x.data");
-  for (int i = 0; i < train_size_; ++i)
-    for (int j = 0; j < feat_dim_; ++j) fin >> x_[i][j];
+  std::ifstream fin(train_x);
+  for (int i = 0; i < train_size_; ++i) {
+    for (int j = 0; j < feat_dim_; ++j) {
+      fin >> x_[i][j];
+    }
+  }
   fin.close();
 
-  fin.open("./input/br_train_y.data");
-  for (int i = 0; i < train_size_; ++i) fin >> y_[i];
+  fin.open(train_y);
+  for (int i = 0; i < train_size_; ++i) {
+    fin >> y_[i];
+  }
   fin.close();
 
-  test_x_ = new float*[test_size_];
-  for (int i = 0; i < test_size_; ++i) test_x_[i] = new float[feat_dim_];
-  test_y_ = new float[test_size_];
+  test_x_.reserve(test_size_);
+  for (int i = 0; i < test_size_; ++i) {
+    test_x_[i].reserve(feat_dim_);
+  }
+  test_y_.reserve(test_size_);
 
-  fin.open("./input/br_train_x.data");
-  for (int i = 0; i < test_size_; ++i)
-    for (int j = 0; j < feat_dim_; ++j) fin >> test_x_[i][j];
+  fin.open(test_x);
+  for (int i = 0; i < test_size_; ++i) {
+    for (int j = 0; j < feat_dim_; ++j) {
+      fin >> test_x_[i][j];
+    }
+  }
   fin.close();
 
-  fin.open("./input/br_train_y.data");
-  for (int i = 0; i < test_size_; ++i) fin >> test_y_[i];
+  fin.open(test_y);
+  for (int i = 0; i < test_size_; ++i) {
+    fin >> test_y_[i];
+  }
   fin.close();
 }
 
 void LRApp::CalGrad() {
   for (int i = 0; i < batch_size_; ++i) {
-    int k = rand() % train_size_;
-    float h = 0;
-    for (int j = 0; j < feat_dim_; ++j) h += paras_[j]*x_[k][j];
+    if (++sample_ptr_ >= train_size_) sample_ptr_ -= train_size_; 
+    int k = sample_ptr_;
+    double h = 0;
+    for (int j = 0; j < feat_dim_; ++j) {
+      h += paras_[j]*x_[k][j];
+    }
     h = 1.0 / (1.0 + exp(-h));
     for (int j = 0; j < feat_dim_; ++j) {
       grad_[j] += (h - y_[k]) * x_[k][j];
@@ -136,24 +158,36 @@ void LRApp::CalGrad() {
   }
 }
 
-void LRApp::PrintLoss(int epoch) {
-  double loss = 0;
+void LRApp::PrintAcc(int epoch) {
+  double loss = 0.0;
+  double cnt = 0.0;
   for (int i = 0; i < train_size_; ++i) {
     double h = 0;
-    for (int j = 0; j < feat_dim_; ++j) h += paras_[j]*x_[i][j];
+    for (int j = 0; j < feat_dim_; ++j) {
+      h += paras_[j]*x_[i][j];
+    }
     h = 1.0 / (1.0 + exp(-h));
-    if (y_[i] > 0.5) loss -= log(h);
-    else loss -= log(1-h);
+    if (y_[i] > 0.5) {
+      if (h > 0.5) cnt++;
+    } else {
+      if (h <= 0.5) cnt++;
+    }
+    loss += y_[i]*log(h+1e-30) + (1-y_[i])*log(1-h+1e-30);
   }
   loss = loss / train_size_;
-  LOG(INFO) << "iter: " << epoch << " loss: " << loss;
+  for (int i = 0; i < train_size_; ++i) {
+    loss += 0.5 * lambda_ * paras_[i] * paras_[i];
+  }
+  LOG(INFO) << "iter: " << epoch << "loss: " << loss << " accuracy on training set: " << cnt / train_size_;
 }
 
 void LRApp::Eval() {
   float acc = 0;
   for (int i = 0; i < test_size_; ++i) {
     float h = 0;
-    for (int j = 0; j < feat_dim_; ++j) h += paras_[j]*test_x_[i][j];
+    for (int j = 0; j < feat_dim_; ++j) {
+      h += paras_[j]*test_x_[i][j];
+    }
     h = 1.0 / (1.0 + exp(-h));
     if ((h < 0.5 && test_y_[i] == 0) || (h > 0.5 && test_y_[i] == 1)) {
       acc += 1.0;
