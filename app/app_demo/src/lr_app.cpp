@@ -10,9 +10,23 @@
 LRApp::LRApp(const LRAppConfig& config) :
 train_size_(config.train_size), feat_dim_(config.feat_dim),
 num_epochs_(config.num_epochs), eval_epochs_(config.eval_epochs),
-learning_rate_(config.learning_rate), input_dir_(config.input_dir),
-lambda_(config.lambda), batch_size_(config.batch_size), sample_ptr_(0),
-test_size_(config.test_size), w_staleness_(config.w_staleness) { }
+learning_rate_(config.learning_rate), lambda_(config.lambda),
+batch_size_(config.batch_size), test_size_(config.test_size),
+w_staleness_(config.w_staleness), input_dir_(config.input_dir),
+sample_ptr_(0), x_(config.train_size), y_(config.train_size),
+test_x_(config.test_size), test_y_(config.test_size),
+paras_(config.feat_dim), grad_(config.feat_dim) {
+  for (int i = 0; i < train_size_; ++i) {
+    x_[i].resize(feat_dim_);
+  }
+  for (int i = 0; i < test_size_; ++i) {
+    test_x_[i].resize(feat_dim_);
+  }
+}
+
+void LRApp::InitApp() {
+  ReadData();
+}
 
 std::vector<petuum::TableConfig> LRApp::ConfigTables() {
   std::vector<petuum::TableConfig> table_configs;
@@ -26,37 +40,30 @@ std::vector<petuum::TableConfig> LRApp::ConfigTables() {
   return table_configs;
 }
 
-void LRApp::InitApp() {
-  ReadData();
-}
-
-// Step 2. Implement the worker thread function
-void LRApp::WorkerThread(int thread_id) {
-  // Step 2.0. Gain Table Access
+// Implement the worker thread function
+void LRApp::WorkerThread(int client_id, int thread_id) {
+  // Step 3. Gain Table Access
   petuum::Table<float> W = GetTable<float>("w");
 
-  // Step 2.1. Initialize parameters
+  // Step 4. Initialize parameters
   if (thread_id == 0) {
     petuum::DenseUpdateBatch<float> update_batch(0, feat_dim_);
     for (int i = 0; i < feat_dim_; ++i) {
-      update_batch[i] = (rand() % 1001 - 500) / 500.0;
+      update_batch[i] = (rand() % 1001 - 500) / 500.0 * 1000.0;
     }
     W.DenseBatchInc(0, update_batch);
   }
-  // Sync after initialization using process_barrier_ from the parent class
+  // Step 5. Sync after initialization using process_barrier_ from the parent class
   process_barrier_->wait();
 
-  if (thread_id == 0) {
+  if (client_id == 0
+      && thread_id == 0) {
     LOG(INFO) << "training starts";
   }
 
-  // Create Local parameters & gradients buffer
-  paras_.reserve(feat_dim_);
-  grad_.reserve(feat_dim_);
-
-  // Step 2.2. Read & Update parameters
+  // Step 6-8. Read & Update parameters
   for (int epoch = 0; epoch < num_epochs_; ++epoch) {
-    // Get weights from Parameter Server
+    // Step 6. Get weights from Parameter Server
     petuum::RowAccessor row_acc;
     const petuum::DenseRow<float>& r = W.Get<petuum::DenseRow<float>>(
         0, &row_acc);
@@ -70,7 +77,7 @@ void LRApp::WorkerThread(int thread_id) {
     // Calculate gradients
     CalGrad();
 
-    // Update weights
+    // Step 7. Update weights
     petuum::DenseUpdateBatch<float> update_batch(0, feat_dim_);
     learning_rate_ /= 1.005;
     for (int i = 0; i < feat_dim_; ++i) {
@@ -82,16 +89,18 @@ void LRApp::WorkerThread(int thread_id) {
 
     // Evaluate on training set
     if (epoch % eval_epochs_ == 0
+        && client_id == 0
         && thread_id == 0) {
       PrintAcc(epoch);
     }
 
-    // Step 2.3. Don't forget the Clock Tick
+    // Step 8. Don't forget the Clock Tick
     petuum::PSTableGroup::Clock();
   }
 
   // Evaluate on test set
-  if (thread_id == 0) {
+  if (client_id == 0
+      && thread_id == 0) {
     Eval();
   }
 }
@@ -101,12 +110,6 @@ void LRApp::ReadData() {
   std::string train_y = input_dir_ + "br_train_y.data";
   std::string test_x = input_dir_ + "br_test_x.data";
   std::string test_y = input_dir_ + "br_test_y.data";
-  
-  x_.reserve(train_size_);
-  for (int i = 0; i < train_size_; ++i) {
-    x_[i].reserve(feat_dim_);
-  }
-  y_.reserve(train_size_);
 
   std::ifstream fin(train_x);
   for (int i = 0; i < train_size_; ++i) {
@@ -121,12 +124,6 @@ void LRApp::ReadData() {
     fin >> y_[i];
   }
   fin.close();
-
-  test_x_.reserve(test_size_);
-  for (int i = 0; i < test_size_; ++i) {
-    test_x_[i].reserve(feat_dim_);
-  }
-  test_y_.reserve(test_size_);
 
   fin.open(test_x);
   for (int i = 0; i < test_size_; ++i) {
@@ -160,36 +157,35 @@ void LRApp::CalGrad() {
 
 void LRApp::PrintAcc(int epoch) {
   double loss = 0.0;
-  double cnt = 0.0;
+  double acc = 0.0;
   for (int i = 0; i < train_size_; ++i) {
     double h = 0;
     for (int j = 0; j < feat_dim_; ++j) {
       h += paras_[j]*x_[i][j];
     }
     h = 1.0 / (1.0 + exp(-h));
-    if (y_[i] > 0.5) {
-      if (h > 0.5) cnt++;
-    } else {
-      if (h <= 0.5) cnt++;
+    if ((h <= 0.5 && y_[i] == 0) || (h > 0.5 && y_[i] == 1)) {
+      acc += 1.0;
     }
-    loss += y_[i]*log(h+1e-30) + (1-y_[i])*log(1-h+1e-30);
+    loss -= y_[i]*log(h+1e-30) + (1-y_[i])*log(1-h+1e-30);
   }
   loss = loss / train_size_;
-  for (int i = 0; i < train_size_; ++i) {
+  for (int i = 0; i < feat_dim_; ++i) {
     loss += 0.5 * lambda_ * paras_[i] * paras_[i];
   }
-  LOG(INFO) << "iter: " << epoch << "loss: " << loss << " accuracy on training set: " << cnt / train_size_;
+  acc = acc / train_size_;
+  LOG(INFO) << "iter: " << epoch << " loss: " << loss << " accuracy on training set: " << acc;
 }
 
 void LRApp::Eval() {
-  float acc = 0;
+  double acc = 0;
   for (int i = 0; i < test_size_; ++i) {
-    float h = 0;
+    double h = 0;
     for (int j = 0; j < feat_dim_; ++j) {
       h += paras_[j]*test_x_[i][j];
     }
     h = 1.0 / (1.0 + exp(-h));
-    if ((h < 0.5 && test_y_[i] == 0) || (h > 0.5 && test_y_[i] == 1)) {
+    if ((h <= 0.5 && test_y_[i] == 0) || (h > 0.5 && test_y_[i] == 1)) {
       acc += 1.0;
     }
   }

@@ -42,7 +42,7 @@ struct TableConfig {
 
 class PsApp {
 public:
-  void Run(int num_worker_threads) {
+  void Run(int num_worker_threads=1) {
     process_barrier_.reset(new boost::barrier(num_worker_threads));
 
     // Step 1.0. Register common row types
@@ -70,6 +70,8 @@ public:
     table_group_config.consistency_model = SSPPush;
     // False to disallow table access for the main thread.
     PSTableGroup::Init(table_group_config, false);
+
+    client_id_ = FLAGS_client_id;
 
     // Create Tables
     for (int i = 0; i < configs.size(); ++i) {
@@ -109,7 +111,7 @@ protected:
   // Return a set of table configuration. See TableConfig struct.
   virtual std::vector<TableConfig> ConfigTables() = 0;
 
-  virtual void WorkerThread(int threadId) = 0;
+  virtual void WorkerThread(int client_id, int thread_id) = 0;
 
   template<typename V>
   Table<V> GetTable(const std::string& table_name) {
@@ -123,7 +125,7 @@ private:
   void RunWorkerThread() {
     PSTableGroup::RegisterThread();
     int thread_id = thread_counter_++;
-    WorkerThread(thread_id);
+    WorkerThread(client_id_, thread_id);
     PSTableGroup::DeregisterThread();
   }
 
@@ -158,6 +160,7 @@ protected:
 
 private:
   std::atomic<int> thread_counter_;
+  int client_id_;
 
   // Map table name to PS's internal table ID.
   std::map<std::string, int> table_names_;
