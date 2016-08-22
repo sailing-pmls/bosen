@@ -118,7 +118,7 @@ protected:
     auto it = table_names_.find(table_name);
     CHECK(it != table_names_.cend()) << "Table " << table_name
       << " was not registered";
-    return PSTableGroup::GetTableOrDie<float>(it->second);
+    return PSTableGroup::GetTableOrDie<V>(it->second);
   }
 
 private:
