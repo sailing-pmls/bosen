@@ -15,8 +15,8 @@ struct LRAppConfig {
   int64_t feat_dim = 30;
   int num_epochs = 1000;
   int eval_epochs = 100;
-  float learning_rate = 1e-4;
-  float lambda = 1e+3;
+  float learning_rate = 1.0;
+  float lambda = 1e-1;
   int batch_size = 100;
   int64_t test_size = 170;
   int w_staleness = 0;
@@ -26,13 +26,14 @@ class LRApp : public petuum::PsApp {
 public:
   LRApp(const LRAppConfig& config);
 
-  std::vector<petuum::TableConfig> ConfigTables() override;
-
-  // Initialization executed by one thread (cannot access table).
+  // Step 1. Initialization executed by one thread (cannot access table).
   void InitApp() override;
 
-  // Step 2. Implement the worker thread function
-  void WorkerThread(int thread_id) override;
+  // Step 2. 
+  std::vector<petuum::TableConfig> ConfigTables() override;
+
+  // Step 3-8. Implement the worker thread function
+  void WorkerThread(int client_id, int thread_id) override;
 
 private:
   void ReadData();
@@ -41,7 +42,6 @@ private:
   void Eval();
 
 private:
-  // All member fields need to end with '_'
   int64_t train_size_;
   int64_t feat_dim_;
   int num_epochs_;

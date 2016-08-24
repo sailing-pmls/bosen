@@ -19,7 +19,8 @@ ssh_cmd = (
     )
 params = {
     "input_dir": join(app_dir, "input/")
-    , "lambda": 1e+3
+    , "learning_rate": 1.0
+    , "lambda": 0.1
     , "batch_size": 100
     , "num_app_threads": 2
     , "w_staleness": 4
