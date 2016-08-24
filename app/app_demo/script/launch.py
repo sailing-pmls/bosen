@@ -5,7 +5,7 @@ import os
 from os.path import dirname, join
 import time
 
-hostfile_name = "localserver"
+hostfile_name = "cogito-4"
 
 app_dir = dirname(dirname(os.path.realpath(__file__)))
 proj_dir = dirname(dirname(app_dir))
@@ -22,7 +22,7 @@ params = {
     , "lambda": 1e+3
     , "batch_size": 100
     , "num_app_threads": 2
-    , "w_staleness": 1
+    , "w_staleness": 4
     }
 
 petuum_params = {
@@ -45,7 +45,11 @@ host_ips = [line.split()[1] for line in hostlines]
 petuum_params["num_clients"] = len(host_ips)
 
 # os.system is synchronous call.
-os.system("killall -q " + prog_name)
+for client_id, ip in enumerate(host_ips):
+  petuum_params["client_id"] = client_id
+  cmd = ssh_cmd + ip + " "
+  cmd += "killall -q " + prog_name
+  os.system(cmd)
 print("Done killing")
 
 for client_id, ip in enumerate(host_ips):
