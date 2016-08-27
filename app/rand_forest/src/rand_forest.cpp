@@ -62,7 +62,8 @@ void RandForest::SaveTrees(std::string output_file) {
   // fout.open(output_file, std::ios::app);
   std::cout << "SaveTrees to " << output_file << std::endl;
   petuum::io::ofstream fout(output_file, std::ios::app);
-  CHECK(fout != NULL) << "Cannot open output file.";
+  //CHECK(fout != NULL) << "Cannot open output file.";
+  CHECK(fout.is_open()) << "Cannot open output file.";
   for (int i = 0; i < serial_trees_.size(); ++i) {
     fout << serial_trees_[i] << std::endl;
   }
@@ -76,7 +77,8 @@ void RandForest::LoadTrees(std::string input_file) {
   // std::cout << "LoadTrees from " << input_file << std::endl;
   petuum::io::ifstream fin(input_file);
   std::string str;
-  CHECK(fin != NULL) << "Cannot open input file.";
+  //CHECK(fin != NULL) << "Cannot open input file.";
+  CHECK(fin.is_open()) << "Cannot open input file.";
 
   num_trees_ = 0;
   while (getline(fin, str)) {
