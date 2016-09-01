@@ -38,14 +38,14 @@
 #include <vector>
 
 // Petuum Parameters
-DEFINE_string(hostfile, "", "Path to file containing server ip:port.");
-DEFINE_int32(num_clients, 1, "Total number of clients");
-DEFINE_int32(num_worker_threads, 1, "Number of app threads in this client");
-DEFINE_int32(client_id, 0, "Client ID");
+//DEFINE_string(hostfile, "", "Path to file containing server ip:port.");
+//DEFINE_int32(num_clients, 1, "Total number of clients");
+//DEFINE_int32(num_worker_threads, 1, "Number of app threads in this client");
+//DEFINE_int32(client_id, 0, "Client ID");
 DEFINE_int32(word_topic_table_process_cache_capacity, -1,
     "Word topic table process cache capacity. -1 uses FLAGS_num_vocabs.");
-DEFINE_int32(ps_row_in_memory_limit, 50000, "Single-machine version only: "
-    "max # rows word-topic table that can be held in memory");
+//DEFINE_int32(ps_row_in_memory_limit, 50000, "Single-machine version only: "
+//"max # rows word-topic table that can be held in memory");
 
 // LDA Parameters
 DEFINE_string(doc_file, "",
@@ -53,7 +53,9 @@ DEFINE_string(doc_file, "",
 DEFINE_double(alpha, 1, "Dirichlet prior on document-topic vectors.");
 DEFINE_double(beta, 0.1, "Dirichlet prior on vocab-topic vectors.");
 DEFINE_int32(num_topics, 100, "Number of topics.");
-DEFINE_int32(num_work_units, 1, "Number of work units");
+DEFINE_int32(num_work_units, 1, "Number of work units. A work unit can be less "
+    "or more than one epoch (sweep over dataset), determined by "
+    "FLAGS_num_iters_per_work_unit");
 DEFINE_int32(compute_ll_interval, 1,
     "Copmute log likelihood over local dataset on every compute_ll_interval "
     "work units");
@@ -86,7 +88,7 @@ DEFINE_string(stats_path, "", "Statistics output file");
 
 DEFINE_string(consistency_model, "SSPPush", "SSP or SSPPush or ...");
 
-DEFINE_int32(num_bg_threads, 1, "number of background threads");
+//DEFINE_int32(num_bg_threads, 1, "number of background threads");
 DEFINE_int32(num_server_threads, 1, "number of server threads");
 
 DEFINE_int32(num_iters_per_work_unit, 1, "number of iterations per work unit");

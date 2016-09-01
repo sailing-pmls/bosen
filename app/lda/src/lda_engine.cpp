@@ -86,9 +86,7 @@ LDAEngine::LDAEngine() {
   context.set("max_vocab_id", master_loader_->GetMaxVocabID());
 }
 
-void LDAEngine::InitApp() {
-  
-}
+void LDAEngine::InitApp() { }
 
 std::vector<petuum::TableConfig> LDAEngine::ConfigTables() {
   petuum::PSTableGroup::RegisterRow<
@@ -103,7 +101,7 @@ std::vector<petuum::TableConfig> LDAEngine::ConfigTables() {
   petuum::TableConfig config;
 
   // Summary row table (single_row).
-  config.name = "su";
+  config.name = "summary";
   config.row_type = petuum::kDenseIntRow;
   config.num_cols = FLAGS_num_topics;
   config.num_rows = 1;
@@ -113,7 +111,7 @@ std::vector<petuum::TableConfig> LDAEngine::ConfigTables() {
   table_configs.push_back(config);
 
   // Word-topic table.
-  config.name = "wt";
+  config.name = "word_topic";
   config.row_type = (petuum::RowType) kSortedVectorMapRow;
   config.num_cols = 0;
   config.num_rows = 1;
@@ -149,8 +147,8 @@ std::vector<petuum::TableConfig> LDAEngine::ConfigTables() {
 
 void LDAEngine::WorkerThread(int client_id, int thread_id) {
 
-  petuum::Table<int> summary_table = GetTable<int>("su");
-  petuum::Table<int> word_topic_table = GetTable<int>("wt");
+  petuum::Table<int> summary_table = GetTable<int>("summary");
+  petuum::Table<int> word_topic_table = GetTable<int>("word_topic");
   petuum::Table<double> llh_table = GetTable<double>("llh");
 
   Context& context = Context::get_instance();
@@ -354,7 +352,7 @@ std::vector<std::vector<float> > LDAEngine::GetTopicWordDist() {
     topic_row.resize(max_vocab_id + 1);
   }
 
-  petuum::Table<int> word_topic_table = GetTable<int>("wt");
+  petuum::Table<int> word_topic_table = GetTable<int>("word_topic");
   for (int word_idx = 0; word_idx < max_vocab_id + 1; ++word_idx) {
     petuum::RowAccessor word_topic_row_acc;
     word_topic_table.Get(word_idx, &word_topic_row_acc);
@@ -368,7 +366,7 @@ std::vector<std::vector<float> > LDAEngine::GetTopicWordDist() {
     }
   }
 
-  petuum::Table<int> summary_table = GetTable<int>("su");
+  petuum::Table<int> summary_table = GetTable<int>("summary");
   petuum::RowAccessor summary_row_acc;
   summary_table.Get(0, &summary_row_acc);
   const auto& summary_row =

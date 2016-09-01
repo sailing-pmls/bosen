@@ -75,7 +75,8 @@ InMemoryMasterDocLoader::InMemoryMasterDocLoader(
       const uint8_t *doc_data
         = reinterpret_cast<const uint8_t*>(it->value().data());
       doc_partition_ptr->emplace_back();
-      LDADoc& new_doc = (*doc_partition_ptr)[doc_partition_ptr->size() - 1];
+      LDADoc& new_doc =
+        (*doc_partition_ptr)[doc_partition_ptr->size() - 1];
       new_doc.Deserialize(doc_data);
       // Check if the topics are initialized.
       if (new_doc.GetNumTopics() != num_topics_) {
