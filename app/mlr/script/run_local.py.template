@@ -20,7 +20,10 @@ proj_dir = dirname(dirname(app_dir))
 
 build_dir = join(proj_dir, "build", "app", "mlr")  
 prog_name = "mlr_main"
-prog_path = join(build_dir, prog_name)
+build_dir = "build"
+app_name = app_dir.split('/')[-1]
+prog_path = os.path.join(proj_dir, build_dir, "app", app_name, prog_name)
+
 
 client_id = sys.argv[1]
 hostfile = sys.argv[2]

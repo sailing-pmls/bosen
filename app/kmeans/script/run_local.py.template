@@ -41,7 +41,10 @@ petuum_params = {
     }
 
 prog_name = "kmeans_main"
-prog_path = join(app_dir, "bin", prog_name)
+build_dir = "build"
+app_name = app_dir.split('/')[-1]
+prog_path = os.path.join(proj_dir, build_dir, "app", app_name, prog_name)
+
 
 env_params = (
   "GLOG_logtostderr=true "
