@@ -40,7 +40,7 @@
 // Petuum Parameters
 //DEFINE_string(hostfile, "", "Path to file containing server ip:port.");
 //DEFINE_int32(num_clients, 1, "Total number of clients");
-//DEFINE_int32(num_worker_threads, 1, "Number of app threads in this client");
+DEFINE_int32(num_worker_threads, 1, "Number of app threads in this client");
 //DEFINE_int32(client_id, 0, "Client ID");
 DEFINE_int32(word_topic_table_process_cache_capacity, -1,
     "Word topic table process cache capacity. -1 uses FLAGS_num_vocabs.");
@@ -84,9 +84,9 @@ DEFINE_int32(max_vocab_id, -1, "Maximum word index, which could be different "
     "from num_vocabs if there are unused vocab indices. "
     "This is read from meta-data file.");
 
-DEFINE_string(stats_path, "", "Statistics output file");
+//DEFINE_string(stats_path, "", "Statistics output file");
 
-DEFINE_string(consistency_model, "SSPPush", "SSP or SSPPush or ...");
+//DEFINE_string(consistency_model, "SSPPush", "SSP or SSPPush or ...");
 
 //DEFINE_int32(num_bg_threads, 1, "number of background threads");
 DEFINE_int32(num_server_threads, 1, "number of server threads");
