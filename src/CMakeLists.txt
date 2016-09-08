@@ -1,6 +1,6 @@
 project(Bosen)
 
-add_compile_options(-std=c++11 -Wall)
+add_compile_options(-std=c++11 -Wall -Wno-sign-compare)
 
 file(GLOB_RECURSE Bosen_SOURCE_FILES *.[ch]pp)
 
