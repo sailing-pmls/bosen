@@ -1,6 +1,6 @@
 project(nmf)
 
-add_compile_options(-std=c++11 -Wall)
+add_compile_options(-std=c++11 -Wall -Wno-sign-compare)
 
 file(GLOB_RECURSE NMF_SOURCE_FILES src/*.[ch]pp)
 

@@ -1,6 +1,6 @@
 project(mlr)
 
-add_compile_options(-std=c++11 -Wall)
+add_compile_options(-std=c++11 -Wall -Wno-sign-compare)
 
 file(GLOB MLR_SOURCE_FILES src/*.[ch]pp)
 add_executable(mlr_main ${MLR_SOURCE_FILES})

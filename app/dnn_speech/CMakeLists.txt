@@ -1,6 +1,6 @@
 project(dnn_speech_main)
 
-add_compile_options(-std=c++11 -Wall)
+add_compile_options(-std=c++11 -Wall -Wno-sign-compare)
 
 file(GLOB DNN_SPEECH_SOURCE_FILES src/dnn/*.[ch]pp)
 file(GLOB DNN_SPEECH_GENDATA_SOURCE_FILES src/dnn/*.[ch]pp)

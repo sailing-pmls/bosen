@@ -1,6 +1,6 @@
 project(rand_forest_main)
 
-add_compile_options(-std=c++11 -Wall)
+add_compile_options(-std=c++11 -Wall -Wno-sign-compare)
 
 file(GLOB_RECURSE RAND_FOREST_SOURCE_FILES src/*.[ch]pp)
 

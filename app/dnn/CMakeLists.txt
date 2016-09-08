@@ -1,6 +1,6 @@
 project(dnn)
 
-add_compile_options(-std=c++11 -Wall)
+add_compile_options(-std=c++11 -Wall -Wno-sign-compare)
 
 file(GLOB DNN_SOURCE_FILES src/dnn/*.[ch]pp)
 file(GLOB DNN_PREDICT_SOURCE_FILES src/dnn_predict/*.[ch]pp)
