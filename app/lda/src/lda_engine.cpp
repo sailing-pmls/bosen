@@ -93,7 +93,8 @@ std::vector<petuum::TableConfig> LDAEngine::ConfigTables() {
       petuum::DenseRow<double>>((petuum::RowType) kDenseDoubleRow);
 
   petuum::PSTableGroup::RegisterRow<
-      petuum::SortedVectorMapRow<int32_t>>((petuum::RowType) kSortedVectorMapRow);
+      petuum::SortedVectorMapRow<int32_t>>
+      ((petuum::RowType) kSortedVectorMapRow);
 
   std::vector<petuum::TableConfig> table_configs;
   lda::Context& context = lda::Context::get_instance();
@@ -138,8 +139,10 @@ std::vector<petuum::TableConfig> LDAEngine::ConfigTables() {
   config.num_cols = 3;
   config.num_rows = 1;
   config.staleness = 0;
-  config.num_rows_to_cache = context.get_int32("num_work_units") * context.get_int32("num_iters_per_work_unit");
-  config.num_oplog_rows = context.get_int32("num_work_units") * context.get_int32("num_iters_per_work_unit");
+  config.num_rows_to_cache = context.get_int32("num_work_units")
+                             * context.get_int32("num_iters_per_work_unit");
+  config.num_oplog_rows = context.get_int32("num_work_units")
+                          * context.get_int32("num_iters_per_work_unit");
   table_configs.push_back(config);
 
   return table_configs;

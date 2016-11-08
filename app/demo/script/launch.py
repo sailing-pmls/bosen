@@ -5,7 +5,7 @@ import os
 from os.path import dirname, join
 import time
 
-hostfile_name = "cogito-4"
+hostfile_name = "localserver"
 
 app_dir = dirname(dirname(os.path.realpath(__file__)))
 proj_dir = dirname(dirname(app_dir))

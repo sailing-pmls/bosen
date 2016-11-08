@@ -53,7 +53,8 @@ void LRApp::WorkerThread(int client_id, int thread_id) {
     }
     W.DenseBatchInc(0, update_batch);
   }
-  // Step 5. Sync after initialization using process_barrier_ from the parent class
+  // Step 5. Sync after initialization using process_barrier_
+  // from the parent class
   process_barrier_->wait();
 
   if (client_id == 0
@@ -174,7 +175,8 @@ void LRApp::PrintAcc(int epoch) {
     loss += 0.5 * lambda_ * paras_[i] * paras_[i];
   }
   acc = acc / train_size_;
-  LOG(INFO) << "iter: " << epoch << " loss: " << loss << " accuracy on training set: " << acc;
+  LOG(INFO) << "iter: " << epoch << " loss: " << loss
+            << " accuracy on training set: " << acc;
 }
 
 void LRApp::Eval() {
