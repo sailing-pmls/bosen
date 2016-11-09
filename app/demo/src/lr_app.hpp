@@ -13,7 +13,7 @@ struct LRAppConfig {
   std::string input_dir;
   int64_t train_size = 399;
   int64_t feat_dim = 30;
-  int num_epochs = 1000;
+  int num_epochs = 10000;
   int eval_epochs = 100;
   float learning_rate = 1.0;
   float lambda = 1e-1;
@@ -52,7 +52,6 @@ private:
   int64_t test_size_;
   int w_staleness_;
   std::string input_dir_;
-  int sample_ptr_;
 
   std::vector<std::vector<float> > x_;
   std::vector<float> y_;

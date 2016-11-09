@@ -13,7 +13,7 @@ num_epochs_(config.num_epochs), eval_epochs_(config.eval_epochs),
 learning_rate_(config.learning_rate), lambda_(config.lambda),
 batch_size_(config.batch_size), test_size_(config.test_size),
 w_staleness_(config.w_staleness), input_dir_(config.input_dir),
-sample_ptr_(0), x_(config.train_size), y_(config.train_size),
+x_(config.train_size), y_(config.train_size),
 test_x_(config.test_size), test_y_(config.test_size),
 paras_(config.feat_dim), grad_(config.feat_dim) {
   for (int i = 0; i < train_size_; ++i) {
@@ -142,16 +142,16 @@ void LRApp::ReadData() {
 }
 
 void LRApp::CalGrad() {
-  for (int i = 0; i < batch_size_; ++i) {
-    if (++sample_ptr_ >= train_size_) sample_ptr_ -= train_size_; 
-    int k = sample_ptr_;
+  for (int i = 0, sample_idx=0; i < batch_size_; ++i, ++sample_idx) {
+    if (sample_idx >= train_size_)
+      sample_idx -= train_size_;
     double h = 0;
     for (int j = 0; j < feat_dim_; ++j) {
-      h += paras_[j]*x_[k][j];
+      h += paras_[j]*x_[sample_idx][j];
     }
     h = 1.0 / (1.0 + exp(-h));
     for (int j = 0; j < feat_dim_; ++j) {
-      grad_[j] += (h - y_[k]) * x_[k][j];
+      grad_[j] += (h - y_[sample_idx]) * x_[sample_idx][j];
     }
   }
 }
