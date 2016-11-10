@@ -18,6 +18,7 @@ DECLARE_string(test_file);
 DECLARE_int32(num_train_eval);
 DECLARE_int32(num_test_eval);
 DECLARE_bool(perform_test);
+DECLARE_bool(perform_test_acc);
 DECLARE_bool(use_weight_file);
 DECLARE_string(weight_file);
 
@@ -45,9 +46,10 @@ const int32_t kColIdxLossTableZeroOneLoss = 2;    // training set
 const int32_t kColIdxLossTableEntropyLoss = 3;    // training set
 const int32_t kColIdxLossTableNumEvalTrain = 4;    // # train point eval
 const int32_t kColIdxLossTableTestZeroOneLoss = 5;
-const int32_t kColIdxLossTableNumEvalTest = 6;  // # test point eval.
-const int32_t kColIdxLossTableTime = 7;
+const int32_t kColIdxLossTableTestAccuracy = 6;
+const int32_t kColIdxLossTableNumEvalTest = 7;  // # test point eval.
+const int32_t kColIdxLossTableTime = 8;
 
-const int32_t kNumColumnsLossTable = 8;
+const int32_t kNumColumnsLossTable = 9;
 
 }  // namespace mlr

@@ -81,6 +81,12 @@ int32_t LRSGDSolver::ZeroOneLoss(const std::vector<float>& prediction, int32_t l
     return prediction[label] >= 0.5 ? 1 : 0;
   }
 
+int32_t LRSGDSolver::TestAccuracy(const std::vector<float>& prediction, int32_t label)
+  const {
+    // prediction[0] is the probability of being in class 1
+    return prediction[label] >= 0.5 ? 0 : 1;
+  }
+
 float LRSGDSolver::CrossEntropyLoss(const std::vector<float>& prediction, int32_t label)
   const {
     CHECK_LE(prediction[label], 1);
