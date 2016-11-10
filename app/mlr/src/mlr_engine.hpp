@@ -68,6 +68,7 @@ private:
   int32_t num_labels_;  // # of classes
   int32_t num_train_eval_;  // # of train data in each eval
   bool perform_test_;
+  bool perform_test_acc_;   // output test accuracy if perform_test_ true
   std::string read_format_; // for both train and test.
   bool feature_one_based_;  // feature starts from 1 (train and test).
   bool label_one_based_;    // label starts from 1 (train and test).

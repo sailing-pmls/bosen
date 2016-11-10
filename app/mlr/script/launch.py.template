@@ -22,6 +22,7 @@ params = {
     , "test_file": join(app_dir, "datasets/covtype.scale.test.small")
     , "global_data": "true"
     , "perform_test": "true"
+    , "perform_test_acc" : "true"
     , "use_weight_file": "false"
     , "weight_file": ""
     , "num_epochs": 40
