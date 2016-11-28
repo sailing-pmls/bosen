@@ -1,5 +1,5 @@
-PMLS v1.1
-=========
+Parallel ML System (PMLS) v1.1
+==============================
 
 To install PMLS, please refer to the PMLS wiki manual: http://docs.petuum.com/en/latest/<br>
 
