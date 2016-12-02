@@ -44,8 +44,8 @@ DEFINE_int32(num_worker_threads, 1, "Number of app threads in this client");
 //DEFINE_int32(client_id, 0, "Client ID");
 DEFINE_int32(word_topic_table_process_cache_capacity, -1,
     "Word topic table process cache capacity. -1 uses FLAGS_num_vocabs.");
-//DEFINE_int32(ps_row_in_memory_limit, 50000, "Single-machine version only: "
-//"max # rows word-topic table that can be held in memory");
+DEFINE_int32(ps_row_in_memory_limit, 50000, "Single-machine version only: "
+    "max # rows word-topic table that can be held in memory");
 
 // LDA Parameters
 DEFINE_string(doc_file, "",
