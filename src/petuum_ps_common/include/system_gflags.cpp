@@ -10,6 +10,7 @@ DEFINE_int32(num_comm_channels_per_client, 1, "no. of comm channels per client")
 DEFINE_bool(init_thread_access_table, false, "whether init thread accesses table");
 DEFINE_int32(num_table_threads, 1, "no. of worker threads per client");
 DEFINE_int32(client_id, 0, "This client's ID");
+DEFINE_int32(num_app_threads, 1, "Number of app threads in this client");
 
 // Execution Configs
 DEFINE_string(consistency_model, "SSPPush", "SSPAggr/SSPPush/SSP");

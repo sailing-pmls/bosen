@@ -15,6 +15,7 @@ DECLARE_int32(num_comm_channels_per_client);
 DECLARE_bool(init_thread_access_table);
 DECLARE_int32(num_table_threads);
 DECLARE_int32(client_id);
+DECLARE_int32(num_app_threads);
 
 DECLARE_string(consistency_model);
 DECLARE_uint64(bandwidth_mbps);
