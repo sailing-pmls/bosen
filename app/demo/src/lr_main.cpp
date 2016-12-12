@@ -2,7 +2,6 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
-DEFINE_int32(num_app_threads, 1, "Number of app threads in this client");
 DEFINE_string(input_dir, "", "Data location");
 DEFINE_double(learning_rate, 1.0, "Learning rate.");
 DEFINE_double(lambda, 1000, "L2 regularization strength.");
