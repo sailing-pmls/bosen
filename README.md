@@ -3,7 +3,7 @@ Parallel ML System (PMLS) v1.1
 
 To install PMLS, please refer to the PMLS wiki manual: http://docs.petuum.com/en/latest/<br>
 
-Website: http://petuum.com/opensource
+Website: http://sailing-lab.wixsite.com/sailing-pmls
 
 For support, or to report bugs, please send email to pmls-support@googlegroups.com. Please provide your name and affiliation when requesting support; we do not support anonymous inquiries.
 
