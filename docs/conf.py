@@ -5,7 +5,6 @@ import subprocess, os
 read_the_docs_build = os.environ.get('READTHEDOCS', None) == 'True'
 
 if read_the_docs_build:
-
     subprocess.call('doxygen')
 
 
@@ -66,8 +65,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Bosen'
-copyright = u'2016, Petuum, Inc.'
-author = u'Petuum, Inc.'
+copyright = u'2016, Sailing Lab'
+author = u'PMLS'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -277,7 +276,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'Bosen.tex', u'Bosen Documentation',
-     u'Petuum, Inc.', 'manual'),
+     u'PMLS', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
