@@ -65,7 +65,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Bosen'
-copyright = u'2016, Sailing Lab'
+copyright = u'2016, Carnegie Mellon University'
 author = u'PMLS'
 
 # The version info for the project you're documenting, acts as replacement for
