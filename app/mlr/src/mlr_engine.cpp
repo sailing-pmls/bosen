@@ -33,6 +33,7 @@ void SaveWeights(AbstractMLRSGDSolver* mlr_solver) {
 
 MLREngine::MLREngine() : thread_counter_(0) {
   perform_test_ = FLAGS_perform_test;
+  perform_test_acc_ = FLAGS_perform_test_acc;
   num_train_eval_ = FLAGS_num_train_eval;
   process_barrier_.reset(new boost::barrier(FLAGS_num_app_threads));
 
@@ -365,6 +366,12 @@ std::string MLREngine::PrintOneEval(int32_t ith_eval) {
       std::to_string(static_cast<int>(loss_row[kColIdxLossTableNumEvalTest]));
     test_info += "test-0-1: " + test_zero_one_str
       + " num-test-used: " + num_test_str;
+    if (perform_test_acc_) {
+      std::string test_acc_str = std::to_string(1 -
+        loss_row[kColIdxLossTableTestZeroOneLoss] /
+          loss_row[kColIdxLossTableNumEvalTest]);
+      test_info += " test-0-1-accuracy " + test_acc_str;
+    }    
   }
   CHECK_LT(0, static_cast<int>(loss_row[kColIdxLossTableNumEvalTrain]));
   output << loss_row[kColIdxLossTableEpoch] << " "
@@ -382,8 +389,11 @@ std::string MLREngine::PrintOneEval(int32_t ith_eval) {
 std::string MLREngine::PrintAllEval(int32_t up_to_ith_eval) {
   std::stringstream output;
   if (perform_test_) {
-    output << "Epoch Batch Train-0-1 Train-Entropy Num-Train-Used Test-0-1 "
-      << "Num-Test-Used Time" << std::endl;
+    output << "Epoch Batch Train-0-1 Train-Entropy Num-Train-Used Test-0-1 ";
+    if(perform_test_acc_) {
+      output << "Test-0-1-Acc";
+    }
+    output << "Num-Test-Used Time" << std::endl;
   } else {
     output << "Epoch Batch Train-0-1 Train-Entropy Num-Train-Used "
       << "Time" << std::endl;
@@ -400,7 +410,14 @@ std::string MLREngine::PrintAllEval(int32_t up_to_ith_eval) {
             loss_row[kColIdxLossTableNumEvalTest]);
       std::string num_test_str =
         std::to_string(static_cast<int>(loss_row[kColIdxLossTableNumEvalTest]));
-      test_info += test_zero_one_str + " " + num_test_str;
+      test_info += test_zero_one_str + " ";
+      if (perform_test_acc_) {
+        std::string test_acc_str = std::to_string(1 -
+          loss_row[kColIdxLossTableTestZeroOneLoss] /
+            loss_row[kColIdxLossTableNumEvalTest]);
+	test_info += test_acc_str + " ";
+      }
+      test_info += num_test_str;
     }
     CHECK_LT(0, static_cast<int>(loss_row[kColIdxLossTableNumEvalTrain]));
     output << loss_row[kColIdxLossTableEpoch] << " "

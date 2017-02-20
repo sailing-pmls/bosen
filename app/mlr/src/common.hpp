@@ -18,6 +18,7 @@ DECLARE_string(test_file);
 DECLARE_int32(num_train_eval);
 DECLARE_int32(num_test_eval);
 DECLARE_bool(perform_test);
+DECLARE_bool(perform_test_acc);
 DECLARE_bool(use_weight_file);
 DECLARE_string(weight_file);
 

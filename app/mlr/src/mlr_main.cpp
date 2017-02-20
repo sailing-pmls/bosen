@@ -38,6 +38,8 @@ DEFINE_int32(num_test_eval, 20, "Use the first num_test_eval test data for "
     "intermediate eval. 0 for using all. The final eval will always use all "
     "test data.");
 DEFINE_bool(perform_test, false, "Ignore test_file if true.");
+DEFINE_bool(perform_test_acc, false, "True to perform accuracy test if "
+    "perform_test is also true.");
 DEFINE_bool(use_weight_file, false, "True to use init_weight_file as init");
 DEFINE_string(weight_file, "", "Use this file to initialize weight. "
   "Format of the file is libsvm (see SaveWeight in MLRSGDSolver).");
