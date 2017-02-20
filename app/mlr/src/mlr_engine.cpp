@@ -33,6 +33,7 @@ void SaveWeights(AbstractMLRSGDSolver* mlr_solver) {
 
 MLREngine::MLREngine() : thread_counter_(0) {
   perform_test_ = FLAGS_perform_test;
+  perform_test_acc_ = FLAGS_perform_test_acc;
   num_train_eval_ = FLAGS_num_train_eval;
   process_barrier_.reset(new boost::barrier(FLAGS_num_app_threads));
 
@@ -334,6 +335,7 @@ void MLREngine::ComputeTestError(AbstractMLRSGDSolver* mlr_solver,
     int32_t num_data_to_use, int32_t ith_eval) {
   test_workload_mgr->Restart();
   int32_t num_error = 0;
+  int32_t num_accurate = 0;
   int32_t num_total = 0;
   int i = 0;
   while (!test_workload_mgr->IsEnd() && i < num_data_to_use) {
@@ -341,9 +343,12 @@ void MLREngine::ComputeTestError(AbstractMLRSGDSolver* mlr_solver,
     std::vector<float> pred =
       mlr_solver->Predict(*test_features_[data_idx]);
     num_error += mlr_solver->ZeroOneLoss(pred, test_labels_[data_idx]);
+    num_accurate += mlr_solver->TestAccuracy(pred, test_labels_[data_idx]);
     ++num_total;
     ++i;
   }
+  loss_table_.Inc(ith_eval, kColIdxLossTableTestAccuracy,
+      static_cast<float>(num_accurate));
   loss_table_.Inc(ith_eval, kColIdxLossTableTestZeroOneLoss,
       static_cast<float>(num_error));
   loss_table_.Inc(ith_eval, kColIdxLossTableNumEvalTest,
@@ -365,6 +370,12 @@ std::string MLREngine::PrintOneEval(int32_t ith_eval) {
       std::to_string(static_cast<int>(loss_row[kColIdxLossTableNumEvalTest]));
     test_info += "test-0-1: " + test_zero_one_str
       + " num-test-used: " + num_test_str;
+    if (perform_test_acc_) {
+      std::string test_acc_str = std::to_string(
+        loss_row[kColIdxLossTableTestAccuracy]
+          / loss_row[kColIdxLossTableNumEvalTest]);
+      test_info += " test-accuracy " + test_acc_str;
+    }
   }
   CHECK_LT(0, static_cast<int>(loss_row[kColIdxLossTableNumEvalTrain]));
   output << loss_row[kColIdxLossTableEpoch] << " "
@@ -382,8 +393,13 @@ std::string MLREngine::PrintOneEval(int32_t ith_eval) {
 std::string MLREngine::PrintAllEval(int32_t up_to_ith_eval) {
   std::stringstream output;
   if (perform_test_) {
-    output << "Epoch Batch Train-0-1 Train-Entropy Num-Train-Used Test-0-1 "
-      << "Num-Test-Used Time" << std::endl;
+    if (perform_test_acc_) {
+      output << "Epoch Batch Train-0-1 Train-Entropy Num-Train-Used Test-0-1 "
+        << "Test-Accuracy Num-Test-Used Time" << std::endl;
+    } else {
+      output << "Epoch Batch Train-0-1 Train-Entropy Num-Train-Used Test-0-1 "
+        << "Num-Test-Used Time" << std::endl;
+    }
   } else {
     output << "Epoch Batch Train-0-1 Train-Entropy Num-Train-Used "
       << "Time" << std::endl;
@@ -396,11 +412,18 @@ std::string MLREngine::PrintAllEval(int32_t up_to_ith_eval) {
     if (perform_test_) {
       CHECK_LT(0, static_cast<int>(loss_row[kColIdxLossTableNumEvalTest]));
       std::string test_zero_one_str =
-        std::to_string(loss_row[kColIdxLossTableTestZeroOneLoss] /
-            loss_row[kColIdxLossTableNumEvalTest]);
+        std::to_string(loss_row[kColIdxLossTableTestZeroOneLoss]
+          / loss_row[kColIdxLossTableNumEvalTest]);
       std::string num_test_str =
         std::to_string(static_cast<int>(loss_row[kColIdxLossTableNumEvalTest]));
-      test_info += test_zero_one_str + " " + num_test_str;
+      test_info += test_zero_one_str + " ";
+      if (perform_test_acc_) {
+        std::string test_acc_str = std::to_string(
+          loss_row[kColIdxLossTableTestAccuracy] / 
+            loss_row[kColIdxLossTableNumEvalTest]);
+        test_info += test_acc_str + " ";
+      }
+      test_info += num_test_str;
     }
     CHECK_LT(0, static_cast<int>(loss_row[kColIdxLossTableNumEvalTrain]));
     output << loss_row[kColIdxLossTableEpoch] << " "
