@@ -1,10 +1,5 @@
-#third_party/
+/third_party/
 #defns.mk   # Only track defns.mk.template
-third_party/bin
-third_party/include
-third_party/src
-third_party/share
-third_party/lib
 
 # Only include defns.mk.template in repo
 defns.mk
