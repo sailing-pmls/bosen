@@ -69,7 +69,7 @@ DEFINE_int32(w_table_num_cols, 1000000,
 const int32_t kDenseRowFloatTypeID = 0;
 
 int main(int argc, char *argv[]) {
-  google::ParseCommandLineFlags(&argc, &argv, true);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
 
   //STATS_APP_LOAD_DATA_BEGIN();
