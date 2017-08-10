@@ -18,65 +18,95 @@ namespace petuum {
  * is undefined.
  */
 
-class MemBlock : boost::noncopyable {
-public:
+  class MemBlock : boost::noncopyable {
+  public:
 
-  MemBlock():
-    mem_(0) { }
+    MemBlock():
+      mem_(0) { }
 
-  ~MemBlock(){
-    Reset(0);
-  }
-
-  /**
-   * Reset the MemBlock object to manage a particular memory chunk of certain 
-   * size. If there is a previous memory chunk managed by this object, it is
-   * freed. Once a memory chunk is give to MemBlock, it cannot be freed 
-   * externally.
-   */
-  void Reset(void *mem){
-    if(mem_ != 0){
-      MemFree(mem_);
+    ~MemBlock(){
+      Reset(0);
     }
-    mem_ = reinterpret_cast<uint8_t*>(mem);
-  }
 
-  /**
-   * Release the control over the memory chunk without destroying it.
-   */
-  uint8_t *Release(){
-    uint8_t *mem = mem_;
-    mem_ = 0;
-    return mem;
-  }
+    /**
+     * Reset the MemBlock object to manage a particular memory chunk of certain 
+     * size. If there is a previous memory chunk managed by this object, it is
+     * freed. Once a memory chunk is give to MemBlock, it cannot be freed 
+     * externally.
+     */
+    void Reset(void *mem){
+      if(mem_ != 0){
+	MemFree(mem_);
+      }
+      mem_ = reinterpret_cast<uint8_t*>(mem);
+    }
 
-  /**
-   * Get a pointer to access to the underlying memory managed by this MemBlock.
-   */
-  uint8_t *get_mem(){
-    return mem_;
-  }
+    /**
+     * Release the control over the memory chunk without destroying it.
+     */
+    uint8_t *Release(){
+      uint8_t *mem = mem_;
+      mem_ = 0;
+      return mem;
+    }
 
-  /**
-   * Allocate a chunk of memory based on the size information. Must be invoked 
-   * when there's no memory managed by this MemBlock object yet.
-   */
-  void Alloc(int32_t size){
-    mem_ = MemAlloc(size);
-  }
+    /**
+     * Get a pointer to access to the underlying memory managed by this MemBlock.
+     */
+    uint8_t *get_mem(){
+      return mem_;
+    }
 
-  static inline uint8_t *MemAlloc(int32_t nbytes){
-    uint8_t *mem = new uint8_t[nbytes];
-    return mem;
-  }
+    /**
+     * Allocate a chunk of memory based on the size information. Must be invoked 
+     * when there's no memory managed by this MemBlock object yet.
+     */
+    void Alloc(int32_t size){
+      mem_ = MemAlloc(size);
+    }
 
-  static inline void MemFree(uint8_t *mem){
-    delete[] mem;
-  }
+    static inline uint8_t *MemAlloc(int32_t nbytes){
 
-private:
-  uint8_t *mem_;
+      /**
+       * This method is called to allocate memory for multiple type instances.
+       * Memory must be allocated to comply memory alignment constaints, which are type specific:
+       * simply allocation memory as "an amount of char or bytes" may lead to returned address
+       * that cannot point to an int or float for example.
+       *
+       * Since we don't know what will be pointed to by the allocated memory,
+       * we take a *pessimistic* approach by allocating a pointer that can point to any kind of type,
+       * by making it point to an instance of the *largest type*.
+       *
+       * FIXME: this function should be a "template" to know what kind of object we need,
+       *        so that the right size is allocated
+       */
 
-};
+      const int32_t & size_of_the_largest_type = sizeof(long double);
+      const int32_t nb_elems_of_the_largest_type_needed_to_hold_the_requested_size = (nbytes / size_of_the_largest_type) + 1;
+
+      /**
+       * Allocation this oversized amount of space as "long double" so that the returned pointer
+       * is alligned to an address which is valid when used to point to any kind of pointed object type
+       *
+       */
+      long double * const pointer_to_space = new long double[nb_elems_of_the_largest_type_needed_to_hold_the_requested_size];
+
+      /**
+       * Cast the allocated pointer to the expected type, *without changing it's value*
+       */
+
+      uint8_t * const & mem = reinterpret_cast<uint8_t*>(pointer_to_space);
+
+      return mem;
+    }
+
+    static inline void MemFree(uint8_t *mem){
+      delete[] mem;
+    }
+
+  private:
+    uint8_t *mem_;
+
+  };
 
 };
