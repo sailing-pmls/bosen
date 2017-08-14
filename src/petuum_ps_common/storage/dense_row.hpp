@@ -172,8 +172,11 @@ void DenseRow<V>::ApplyIncUnsafe(int32_t column_id, const void *update) {
 
 template<typename V>
 void DenseRow<V>::ApplyBatchIncUnsafe(const int32_t *column_ids,
-  const void *update_batch, int32_t num_updates) {
-  const V *update_array = reinterpret_cast<const V*>(update_batch);
+  const void *update_batch, const int32_t num_updates) {
+
+  V update_array[num_updates];
+  memcpy (update_array, update_batch, sizeof(V) * num_updates);
+
   int i;
   for (i = 0; i < num_updates; ++i) {
     data_[column_ids[i]] += update_array[i];
