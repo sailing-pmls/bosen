@@ -6,10 +6,18 @@
 #include <stdint.h>
 #include <glog/logging.h>
 #include <boost/noncopyable.hpp>
+#include <cstddef>
+
 
 namespace petuum {
 
-  typedef long double type_to_use_to_force_alignment;
+  // TODO: MAX_ALIGN_T macros current never defined
+  //        should be computed on compiler and machine caharacteristics
+#ifdef MAX_ALIGN_T
+  typedef std::max_align_t max_alignment_type;
+#else
+  typedef long double max_alignment_type; // worst case
+#endif
 
 /**
  * A thin layer to manage a chunk of contiguous memory which may be allocated 
@@ -86,15 +94,15 @@ namespace petuum {
        */
 
       const int32_t nb_elems_of_alignment_type_needed_to_hold_the_requested_size = \
-	(nbytes / sizeof(type_to_use_to_force_alignment)) + 1;
+	(nbytes / sizeof(max_alignment_type)) + 1;
 
       /**
        * Allocation this oversized amount of space as "long double" so that the returned pointer
        * is alligned to an address which is valid when used to point to any kind of pointed object type
        *
        */
-      type_to_use_to_force_alignment * const pointer_to_space_aligned =	\
-	new type_to_use_to_force_alignment[nb_elems_of_alignment_type_needed_to_hold_the_requested_size];
+      max_alignment_type* const pointer_to_space_aligned = \
+	new max_alignment_type[nb_elems_of_alignment_type_needed_to_hold_the_requested_size];
 
       /**
        * Cast the allocated pointer to the expected type, *without changing it's value*

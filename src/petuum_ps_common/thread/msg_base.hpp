@@ -11,8 +11,8 @@ const unsigned int PETUUM_MSG_STACK_BUFF_SIZE=32;  // number of bytes
 
 namespace petuum {
 
-  const int32_t nb_elems_of_alignment_type_needed_to_hold_the_requested_size = \
-    (PETUUM_MSG_STACK_BUFF_SIZE / sizeof(type_to_use_to_force_alignment)) + 1;
+  const int32_t nb_elems_of_aligned_type_needed_to_hold_a_petuum_msg_buff = \
+    (PETUUM_MSG_STACK_BUFF_SIZE / sizeof(max_alignment_type)) + 1;
 
 
   enum MsgType {
@@ -124,7 +124,7 @@ namespace petuum {
     MemBlock mem_;
     bool own_mem_;  // if memory is owned by MemBlock
 
-    type_to_use_to_force_alignment stack_buff_[nb_elems_of_alignment_type_needed_to_hold_the_requested_size];
+    max_alignment_type stack_buff_[nb_elems_of_aligned_type_needed_to_hold_a_petuum_msg_buff];
     bool use_stack_buff_;
   };
 
