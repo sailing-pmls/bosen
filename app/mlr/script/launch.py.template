@@ -44,7 +44,7 @@ petuum_params = {
     }
 
 prog_name = "mlr_main"
-prog_path = join(app_dir, prog_name)
+prog_path = join(app_dir, "bin", prog_name)
 
 env_params = (
   "GLOG_logtostderr=true "
