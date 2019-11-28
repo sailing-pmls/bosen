@@ -23,43 +23,14 @@ proj_dir = dirname(dirname(app_dir))
 
 params = {
     "table_staleness": 10
-    , "is_partitioned": 0
-    , "load_cache": 0
-    , "input_data_format": "text"
-    , "output_data_format": "text"
-     , "output_path": join(app_dir, "sample/output")
-    #, "output_path": "hdfs://hdfs-domain/user/bosen/dataset/nmf/sample/output"
-    , "rank": 3
-    , "m": 9
-    , "n": 9
-    , "num_epochs": 800
-    , "minibatch_size": 9
-    , "num_iter_L_per_minibatch": 10
-    , "num_eval_minibatch": 10
-    , "num_eval_samples": 100
-    , "init_step_size": 0.05
-    , "step_size_offset": 0.0
-    , "step_size_pow": 0.0
-    , "init_step_size_L": 0.0
-    , "step_size_offset_L": 0.0
-    , "step_size_pow_L": 0.0
-    , "init_step_size_R": 0.0
-    , "step_size_offset_R": 0.0
-    , "step_size_pow_R": 0.0
-    , "init_L_low": 0.5
-    , "init_L_high": 1.0
-    , "init_R_low": 0.5
-    , "init_R_high": 1.0
-    , "table_staleness": 0
-    , "maximum_running_time": 0.0
-     , "data_file": join(app_dir, "sample/data/sample.txt")
-    #, "data_file": "hdfs://hdfs-domain/user/bosen/dataset/nmf/sample/data/sample.txt"
-    , "cache_path": join(app_dir, "N/A")
+    , "number_rows": 10000000
+    , "row_size": 100
     }
 
 petuum_params = {
-    "hostfile": hostfile,
-    "num_worker_threads": 4
+    "hostfile": hostfile
+    , "num_worker_threads": 4
+    , "num_comm_channels_per_client": 1
     }
 
 prog_name = "nmf_main"
