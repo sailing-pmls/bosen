@@ -624,7 +624,7 @@ size_t AbstractBgWorker::SendOpLogMsgs(bool clock_advanced) {
       delete oplog_msg_iter->second;
       oplog_msg_iter->second = 0;
     } else {
-      ClientSendOpLogMsg clock_oplog_msg(0);
+      ClientSendOpLogMsg clock_oplog_msg(static_cast<size_t>(0));
       clock_oplog_msg.get_is_clock() = clock_advanced;
       clock_oplog_msg.get_client_id() = GlobalContext::get_client_id();
       clock_oplog_msg.get_version() = version_;

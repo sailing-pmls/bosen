@@ -61,11 +61,11 @@ public:
    * Allocate a chunk of memory based on the size information. Must be invoked 
    * when there's no memory managed by this MemBlock object yet.
    */
-  void Alloc(int32_t size){
+  void Alloc(size_t size){
     mem_ = MemAlloc(size);
   }
 
-  static inline uint8_t *MemAlloc(int32_t nbytes){
+  static inline uint8_t *MemAlloc(size_t nbytes){
     uint8_t *mem = new uint8_t[nbytes];
     return mem;
   }
