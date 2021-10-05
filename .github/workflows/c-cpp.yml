@@ -1,0 +1,20 @@
+name: Try to compile on latest Ubuntu
+
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Get dependencies
+      run: git clone https://github.com/sailing-pmls/third_party.git third_party
+      
+    - name: Compile dependencies 
+      run: cd third_party && make
+
+    - name: Compile PS
+      run: cd .. && cp defns.mk.template defns.mk && make
